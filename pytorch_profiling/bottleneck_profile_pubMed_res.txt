@@ -1,0 +1,119 @@
+`bottleneck` is a tool that can be used as an initial step for debugging
+bottlenecks in your program.
+
+It summarizes runs of your script with the Python profiler and PyTorch's
+autograd profiler. Because your script will be profiled, please ensure that it
+exits in a finite amount of time.
+
+For more complicated uses of the profilers, please see
+https://docs.python.org/3/library/profile.html and
+https://pytorch.org/docs/master/autograd.html#profiler for more information.
+Running environment analysis...
+Running your script with cProfile
+1 3 500
+Data(edge_index=[2, 88648], test_mask=[19717], train_mask=[19717], val_mask=[19717], x=[19717, 500], y=[19717])
+Running your script with the autograd profiler...
+1 3 500
+Data(edge_index=[2, 88648], test_mask=[19717], train_mask=[19717], val_mask=[19717], x=[19717, 500], y=[19717])
+1 3 500
+Data(edge_index=[2, 88648], test_mask=[19717], train_mask=[19717], val_mask=[19717], x=[19717, 500], y=[19717])
+--------------------------------------------------------------------------------
+  Environment Summary
+--------------------------------------------------------------------------------
+PyTorch 1.2.0 compiled w/ CUDA 10.0.130
+Running with Python 3.7 and CUDA 10.1.243
+
+`pip list` truncated output:
+numpy==1.16.4
+numpydoc==0.9.1
+torch==1.2.0
+torch-cluster==1.4.4
+torch-geometric==1.3.1
+torch-scatter==1.3.1
+torch-sparse==0.4.0
+torch-spline-conv==1.1.0
+torchvision==0.4.0a0+6b959ee
+--------------------------------------------------------------------------------
+  cProfile output
+--------------------------------------------------------------------------------
+         1177802 function calls (1151108 primitive calls) in 2.755 seconds
+
+   Ordered by: internal time
+   List reduced from 7898 to 15 due to restriction <15>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+       10    1.897    0.190    1.897    0.190 {method 'to' of 'torch._C._TensorBase' objects}
+     1485    0.091    0.000    0.091    0.000 {built-in method marshal.loads}
+3105/3064    0.029    0.000    0.110    0.000 {built-in method builtins.__build_class__}
+  186/184    0.028    0.000    0.028    0.000 {built-in method _imp.create_dynamic}
+    10079    0.024    0.000    0.024    0.000 {built-in method posix.stat}
+      772    0.024    0.000    0.024    0.000 {built-in method builtins.compile}
+      611    0.020    0.000    0.042    0.000 /home/xiangli/anaconda3/envs/pytorch_geometric/lib/python3.7/textwrap.py:414(dedent)
+        2    0.019    0.009    0.019    0.009 {method 'max' of 'torch._C._TensorBase' objects}
+     3029    0.016    0.000    0.064    0.000 <frozen importlib._bootstrap_external>:1356(find_spec)
+   2485/1    0.015    0.000    2.756    2.756 {built-in method builtins.exec}
+  186/147    0.015    0.000    0.051    0.000 {built-in method _imp.exec_dynamic}
+      307    0.012    0.000    0.032    0.000 /home/xiangli/anaconda3/envs/pytorch_geometric/lib/python3.7/site-packages/scipy/_lib/doccer.py:12(docformat)
+     1417    0.011    0.000    0.012    0.000 {method 'sub' of 're.Pattern' objects}
+     2235    0.011    0.000    0.087    0.000 <frozen importlib._bootstrap>:882(_find_spec)
+ 1015/210    0.010    0.000    0.029    0.000 /home/xiangli/anaconda3/envs/pytorch_geometric/lib/python3.7/sre_parse.py:475(_parse)
+
+
+--------------------------------------------------------------------------------
+  autograd profiler output (CPU mode)
+--------------------------------------------------------------------------------
+        top 15 events sorted by cpu_time_total
+
+------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+Name          Self CPU total %  Self CPU total   CPU total %      CPU total        CPU time avg     CUDA total %     CUDA total       CUDA time avg    Number of Calls  Input Shapes                         
+------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+to            89.05%           4.005ms          89.05%           4.005ms          4.005ms          NaN              0.000us          0.000us          1                []                                   
+to            4.15%            186.639us        4.15%            186.639us        186.639us        NaN              0.000us          0.000us          1                []                                   
+to            2.17%            97.699us         2.17%            97.699us         97.699us         NaN              0.000us          0.000us          1                []                                   
+max           0.87%            39.190us         0.87%            39.190us         39.190us         NaN              0.000us          0.000us          1                []                                   
+to            0.79%            35.368us         0.79%            35.368us         35.368us         NaN              0.000us          0.000us          1                []                                   
+uniform_      0.73%            32.861us         0.73%            32.861us         32.861us         NaN              0.000us          0.000us          1                []                                   
+max           0.38%            17.149us         0.38%            17.149us         17.149us         NaN              0.000us          0.000us          1                []                                   
+to            0.33%            14.726us         0.33%            14.726us         14.726us         NaN              0.000us          0.000us          1                []                                   
+to            0.29%            12.858us         0.29%            12.858us         12.858us         NaN              0.000us          0.000us          1                []                                   
+to            0.28%            12.483us         0.28%            12.483us         12.483us         NaN              0.000us          0.000us          1                []                                   
+to            0.26%            11.850us         0.26%            11.850us         11.850us         NaN              0.000us          0.000us          1                []                                   
+to            0.24%            10.786us         0.24%            10.786us         10.786us         NaN              0.000us          0.000us          1                []                                   
+to            0.21%            9.598us          0.21%            9.598us          9.598us          NaN              0.000us          0.000us          1                []                                   
+empty         0.14%            6.225us          0.14%            6.225us          6.225us          NaN              0.000us          0.000us          1                []                                   
+select        0.12%            5.295us          0.12%            5.295us          5.295us          NaN              0.000us          0.000us          1                []                                   
+------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+Self CPU time total: 4.498ms
+CUDA time total: 0.000us
+
+--------------------------------------------------------------------------------
+  autograd profiler output (CUDA mode)
+--------------------------------------------------------------------------------
+        top 15 events sorted by cpu_time_total
+
+	Because the autograd profiler uses the CUDA event API,
+	the CUDA time column reports approximately max(cuda_time, cpu_time).
+	Please ignore this output if your code does not use CUDA.
+
+------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+Name          Self CPU total %  Self CPU total   CPU total %      CPU total        CPU time avg     CUDA total %     CUDA total       CUDA time avg    Number of Calls  Input Shapes                         
+------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+to            86.78%           3.831ms          86.78%           3.831ms          3.831ms          86.92%           3.831ms          3.831ms          1                []                                   
+to            4.39%            193.722us        4.39%            193.722us        193.722us        4.38%            193.024us        193.024us        1                []                                   
+to            3.13%            137.995us        3.13%            137.995us        137.995us        3.16%            139.264us        139.264us        1                []                                   
+max           1.14%            50.258us         1.14%            50.258us         50.258us         0.98%            43.232us         43.232us         1                []                                   
+to            0.86%            37.870us         0.86%            37.870us         37.870us         0.85%            37.664us         37.664us         1                []                                   
+uniform_      0.81%            35.577us         0.81%            35.577us         35.577us         0.79%            34.624us         34.624us         1                []                                   
+max           0.45%            19.695us         0.45%            19.695us         19.695us         0.45%            19.776us         19.776us         1                []                                   
+to            0.40%            17.570us         0.40%            17.570us         17.570us         0.41%            17.889us         17.889us         1                []                                   
+to            0.36%            15.940us         0.36%            15.940us         15.940us         0.36%            15.872us         15.872us         1                []                                   
+to            0.36%            15.763us         0.36%            15.763us         15.763us         0.36%            16.032us         16.032us         1                []                                   
+to            0.31%            13.764us         0.31%            13.764us         13.764us         0.30%            13.280us         13.280us         1                []                                   
+to            0.30%            13.224us         0.30%            13.224us         13.224us         0.29%            12.673us         12.673us         1                []                                   
+empty         0.29%            12.726us         0.29%            12.726us         12.726us         0.31%            13.536us         13.536us         1                []                                   
+to            0.28%            12.261us         0.28%            12.261us         12.261us         0.28%            12.513us         12.513us         1                []                                   
+select        0.16%            7.129us          0.16%            7.129us          7.129us          0.16%            7.007us          7.007us          1                []                                   
+------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  ---------------  -----------------------------------  
+Self CPU time total: 4.415ms
+CUDA time total: 4.408ms
+

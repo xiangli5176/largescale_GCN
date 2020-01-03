@@ -1,0 +1,23 @@
+Timer unit: 1e-06 s
+
+Total time: 0.609469 s
+File: /home/xiangli/projects/pytorch_tutorial/profile_pubMed.py
+Function: simulate at line 37
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    37                                           def simulate(steps):
+    38                                           
+    39         1         30.0     30.0      0.0      model.train()
+    40       201        197.0      1.0      0.0      for epoch in range(steps):
+    41       200       4353.0     21.8      0.7          optimizer.zero_grad()
+    42       200     365456.0   1827.3     60.0          out = model(data)
+    43       200      62351.0    311.8     10.2          loss = F.nll_loss(out[data.train_mask], data.y[data.train_mask])
+    44       200     112083.0    560.4     18.4          loss.backward()
+    45       200      62415.0    312.1     10.2          optimizer.step()
+    46                                           
+    47         1         31.0     31.0      0.0      model.eval()
+    48         1       2049.0   2049.0      0.3      _, pred = model(data).max(dim=1)
+    49         1        419.0    419.0      0.1      correct = float (pred[data.test_mask].eq(data.y[data.test_mask]).sum().item())
+    50         1         30.0     30.0      0.0      acc = correct / data.test_mask.sum().item()
+    51         1         55.0     55.0      0.0      print('Accuracy: {:.4f}'.format(acc))
