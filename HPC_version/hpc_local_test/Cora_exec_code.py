@@ -169,8 +169,9 @@ if __name__ == '__main__':
     test_folder_name = 'hpc_large_scale_test/train_10%_full_neigh_random_split_tr_valid_first/'
 
 
-    data_name = 'Cora
+    data_name = 'Cora'
     dataset = CoraFull(root = local_data_root + 'CoralFull')
+
     data = dataset[0]
     image_data_path = './results/' + data_name + '/' + test_folder_name
     partition_nums = [4]
