@@ -76,8 +76,8 @@ class ClusteringMachine(object):
         Decomposing the graph, partitioning the features and label, creating Torch arrays.
         """
         # to keep the edge weights of the original whole graph:
-        # self.train_clusters, self.sg_nodes_global = self.metis_clustering(self.graph, partition_num)
-        self.train_clusters, self.sg_nodes_global = self.random_clustering(list(self.graph.nodes()), partition_num)
+        self.train_clusters, self.sg_nodes_global = self.metis_clustering(self.graph, partition_num)
+#         self.train_clusters, self.sg_nodes_global = self.random_clustering(list(self.graph.nodes()), partition_num)
         self.valid_clusters = self.train_clusters
         
         relative_test_ratio = (test_ratio) / (1 - validation_ratio)
@@ -124,9 +124,9 @@ class ClusteringMachine(object):
         model_nodes_global, valid_nodes_global = train_test_split(list(self.graph.nodes()), test_size = validation_ratio)
         train_nodes_global, test_nodes_global = train_test_split(model_nodes_global, test_size = relative_test_ratio)
         
-        self.train_clusters, self.sg_train_nodes_global = self.random_clustering(train_nodes_global, train_part_num)
+#         self.train_clusters, self.sg_train_nodes_global = self.random_clustering(train_nodes_global, train_part_num)
         # special extreme case, each train node in one batch seed
-        # self.train_clusters, self.sg_train_nodes_global = self.random_clustering(train_nodes_global, len(train_nodes_global))
+        self.train_clusters, self.sg_train_nodes_global = self.random_clustering(train_nodes_global, len(train_nodes_global))
         self.valid_clusters, self.sg_validation_nodes_global = self.random_clustering(valid_nodes_global, valid_part_num)
         self.test_clusters, self.sg_test_nodes_global = self.random_clustering(test_nodes_global, test_part_num)
 
@@ -260,24 +260,23 @@ class ClusteringMachine(object):
                 1) neighbor: nodes global idx inside each layer of the batch
                 2) accum_neighbor: accumulating neighbors , i.e. the final batch nodes
         """
-        neighbor = defaultdict(dict)   # keep layer nodes of each layer
         accum_neighbor = defaultdict(set)
         for cluster in target_seed.keys():
-            neighbor[cluster] = {0 : set(target_seed[cluster])}
+            neighbor = set(target_seed[cluster])  # first layer of the neighbor nodes of each cluster
             for layer in range(k):
                 # first accumulate last layer
-                accum_neighbor[cluster] |= neighbor[cluster][layer]
+                accum_neighbor[cluster] |= neighbor
                 tmp_level = set()
-                for node in neighbor[cluster][layer]:
+                for node in neighbor:
                     tmp_level |= set(self.graph.neighbors(node))  # the key here we are using self.graph, extract neighbor from the whole graph
                 # add the new layer of neighbors
                 tmp_level -= accum_neighbor[cluster]
                 # each layer will only contains partial nodes from the previous layer
-                neighbor[cluster][layer+1] = set(random.sample(tmp_level, int(len(tmp_level) * frac) ) ) if 0 < frac < 1 else tmp_level
+                neighbor = set(random.sample(tmp_level, int(len(tmp_level) * frac) ) ) if 0 < frac < 1 else tmp_level
     #                 print('layer ' + str(layer + 1) + ' : ', self.neighbor[cluster][layer+1])
             # the most outside layer: kth layer will be added:
-            accum_neighbor[cluster] |= neighbor[cluster][k]
-        return neighbor, accum_neighbor
+            accum_neighbor[cluster] |= neighbor
+        return accum_neighbor
         
     def mini_batch_generate(self, target_seed, k, fraction = 1.0):
         """
@@ -307,7 +306,7 @@ class ClusteringMachine(object):
         
         info_batch_size = {}
                 
-        neighbor, accum_neighbor = self.mini_batch_sample(target_seed, k, frac = fraction)
+        accum_neighbor = self.mini_batch_sample(target_seed, k, frac = fraction)
         
         for cluster in target_seed.keys():
             batch_subgraph = self.graph.subgraph(accum_neighbor[cluster])
