@@ -3,9 +3,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import os
+import shutil
 
 import pandas as pd
 import seaborn as sns
+
+
+def check_folder_exist(folder_path):
+    if os.path.exists(folder_path) and os.path.isdir(folder_path):
+        shutil.rmtree(folder_path)
 
 class draw_trainer_info:
     
