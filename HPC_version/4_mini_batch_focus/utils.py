@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import os
+import shutil
 import copy
 
 import pandas as pd
@@ -11,7 +12,11 @@ import seaborn as sns
 from Cluster_Machine import ClusteringMachine
 from Cluster_Trainer import ClusterGCNTrainer_mini_Train, wholeClusterGCNTrainer_sequence
 
-   
+
+def check_folder_exist(folder_path):
+    if os.path.exists(folder_path) and os.path.isdir(folder_path):
+        shutil.rmtree(folder_path)
+
 ''' Draw the information about the GCN calculating batch size '''
 def draw_cluster_info(clustering_machine, data_name, img_path, comments = '_cluster_node_distr'):
     """
