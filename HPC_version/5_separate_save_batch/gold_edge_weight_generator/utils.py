@@ -5,7 +5,6 @@ import numpy as np
 import os
 import shutil
 import copy
-import csv
 
 import pandas as pd
 import seaborn as sns
@@ -20,28 +19,16 @@ def check_folder_exist(folder_path):
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
         shutil.rmtree(folder_path)
 
-def print_dir_content_info(path):
-    """
-        print out the file information under the path :  (name, size(KB))
-    """
-    with os.scandir(path) as dir_contents:
-        print('\n Information about the content of ' + path)
-        for entry in dir_contents:
-            if entry.is_file():
-                info = entry.stat()
-                
-                print('File name: [ {} ]; with size: {} KB'.format(entry.name, info.st_size / 1024))
 
-        print()
 # preprocessing the data: 
 # generate the edge_weight after adding self-loops
-def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None, store_path='./tmp/'):
+def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None, clustering_file=None):
     """
         edge_index(ndarray): undirected edge index (two-directions both included)
         num_nodes(int):  number of nodes inside the graph
         edge_weight(ndarray): if any weights already assigned, otherwise will be generated 
         improved(boolean):   may assign 2 to the self loop weight if true
-        store_path(string): the path of the folder to contain all the clustering information files
+        clustering_file(string): the path of the folder to contain all the clustering information files
     """
     # calculate the global graph properties, global edge weights
     if edge_weight is None:
@@ -67,19 +54,13 @@ def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dty
     # transfer from tensor to the numpy to construct the dict for the edge_weights
     edge_index = edge_index.t().numpy()
     normalized_edge_weight = normalized_edge_weight.numpy()
-
+    
+    # return the genenator of the edge weights to construct the self.graph later
     num_edge = edge_index.shape[0]
+    output_gen = ([edge_index[i][0], edge_index[i][1], normalized_edge_weight[i]] for i in range(num_edge))
+    print(type(output_gen))
+    return output_gen
 
-    output = ([edge_index[i][0], edge_index[i][1], normalized_edge_weight[i]] for i in range(num_edge))
-
-    # output the edge weights as the csv file
-    input_edge_weight_txt_file = store_path + 'input_edge_weight_list.csv'
-    os.makedirs(os.path.dirname(input_edge_weight_txt_file), exist_ok=True)
-    with open(input_edge_weight_txt_file, 'w', newline='\n') as fp:
-        wr = csv.writer(fp, delimiter = ' ')
-        for line in output:
-            wr.writerow(line)
-    return input_edge_weight_txt_file
 
 # remove all the isolated nodes, otherwise metis won't work normally
 def filter_out_isolate(edge_index, features, label):

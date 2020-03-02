@@ -2,6 +2,7 @@ from collections import defaultdict
 import os
 import shutil
 import pickle
+import time
 import torch
 import metis
 import random
@@ -15,24 +16,34 @@ from itertools import chain
 
 from utils import *
 
+
 class ClusteringMachine(object):
     """
     Clustering the graph, feature set and label. Performed on the CPU side
     """
-    def __init__(self, edge_index, features, label):
+    def __init__(self, edge_index, features, label, edge_weight_generator, clustering_folder):
         """
         :param edge_index: COO format of the edge indices.
         :param features: Feature matrix (ndarray).
         :param label: label vector (ndarray).
+        :clustering_folder(string): the path of the folder to contain all the clustering information files
         """
-        tmp = edge_index.t().numpy().tolist()
-        self.graph = nx.from_edgelist(tmp)
         self.features = features
+        # to test the file size of the features
+        cluster_feature_file = clustering_folder + 'cluster_features.txt'
+        with open(cluster_feature_file, "wb") as fp:
+            pickle.dump(self.features, fp)
+            
         self.label = label
         self._set_sizes()
         self.edge_index = edge_index
-        # this will get the edge weights in a complete graph
-        self.get_edge_weight(self.edge_index, self.node_count)
+        
+        self.graph = nx.Graph() 
+        self.graph.add_weighted_edges_from(edge_weight_generator)
+        # to test the file size of the weighted graph
+        cluster_graph_file = clustering_folder + 'cluster_graph.txt'
+        with open(cluster_graph_file, "wb") as fp:
+            pickle.dump(self.graph, fp)
 
     def _set_sizes(self):
         """
@@ -41,38 +52,6 @@ class ClusteringMachine(object):
         self.node_count = self.features.shape[0]
         self.feature_count = self.features.shape[1]    # features all always in the columns
         self.label_count = len(np.unique(self.label.numpy()) )
-        
-    def get_edge_weight(self, edge_index, num_nodes, edge_weight=None, improved=False, dtype=None):
-        
-        if edge_weight is None:
-            edge_weight = torch.ones((edge_index.size(1), ), dtype=dtype, device=edge_index.device)
-        
-        fill_value = 1 if not improved else 2
-        # there are num_nodes self-loop edges added after the edge_index
-        edge_index, edge_weight = add_remaining_self_loops(edge_index, edge_weight, fill_value, num_nodes)
-        
-        row, col = edge_index   
-        # row includes the starting points of the edges  (first row of edge_index)
-        # col includes the ending points of the edges   (second row of edge_index)
-
-        deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
-        # row records the source nodes, which is the index we are trying to add
-        # deg will record the out-degree of each node of x_i in all edges (x_i, x_j) including self_loops
-        
-        deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
-        normalized_edge_weight = deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
-        self.edge_index_global_self_loops = edge_index
-        # transfer from tensor to the numpy to construct the dict for the edge_weights
-        edge_index = edge_index.t().numpy()
-        normalized_edge_weight = normalized_edge_weight.numpy()
-        num_edge, _ = edge_index.shape
-        # this info can also be stored as matrix considering the memory, depends whether the matrix is sparse or not
-        self.edge_weight_global_dict = {(edge_index[i][0], edge_index[i][1]) : normalized_edge_weight[i] for i in range(num_edge)}
-        
-#         print('after adding self-loops, edge_index is', edge_index)
-        self.edge_weight_global = [ self.edge_weight_global_dict[(edge[0], edge[1])] for edge in edge_index ]
-#         print('a list of the global weights : \n', self.edge_weight_global )
     
     # 1) first use different clustering method, then split each cluster into train, test and validation nodes, split edges
     def split_cluster_nodes_edges(self, test_ratio, validation_ratio, partition_num = 2):
@@ -115,6 +94,7 @@ class ClusteringMachine(object):
     # 2) first assign train, test, validation nodes, split edges; this is based on the assumption that the clustering is no longer that important
     def split_whole_nodes_edges_then_cluster(self, test_ratio, validation_ratio):
         """
+            Only split nodes
             First create train-test splits, then split train and validation into different batch seeds
             Input:  
                 1) ratio of test, validation
@@ -166,80 +146,6 @@ class ClusteringMachine(object):
         for node, cluster_id in enumerate(parts):
             cluster_nodes_global[cluster_id].append(node)
         return clusters, cluster_nodes_global
-
-
-    def general_isolate_clustering(self, k):
-        """
-            Still find the train batch, but cannot exceed the scope of the isolated clustering
-        """
-        self.sg_mini_train_edges_global = {}
-        self.sg_mini_train_nodes_global = {}
-        
-        self.sg_mini_train_nodes_local = {}
-        self.sg_mini_train_edges_local = {}
-        self.sg_mini_train_edge_weight_local = {}
-        self.sg_mini_train_features = {}
-        self.sg_mini_train_labels = {}
-        
-        self.neighbor = defaultdict(dict)   # keep layer nodes of each layer
-        self.train_accum_neighbor = defaultdict(set)
-        
-        self.info_train_batch_size = {}
-        self.sg_subgraph = {}
-        
-        for cluster in self.train_clusters:
-            self.sg_subgraph[cluster] = self.graph.subgraph(self.sg_nodes_global[cluster]) # for later use of generating local neighbor
-            self.neighbor[cluster] = {0 : set(self.sg_train_nodes_global[cluster])}
-            for layer in range(k):
-                # first accumulate last layer
-                self.train_accum_neighbor[cluster] |= self.neighbor[cluster][layer]
-                tmp_level = set()
-                for node in self.neighbor[cluster][layer]:
-                    tmp_level |= set(self.sg_subgraph[cluster].neighbors(node))    # can only get the neighbor of the clustered: sg_subgraph[cluster], never beyond it
-                # add the new layer of neighbors
-                self.neighbor[cluster][layer+1] = tmp_level - self.train_accum_neighbor[cluster]
-#                 print('layer ' + str(layer + 1) + ' : ', self.neighbor[cluster][layer+1])
-            # the most outside layer: kth layer will be added:
-            self.train_accum_neighbor[cluster] |= self.neighbor[cluster][k]
-            batch_subgraph = self.sg_subgraph[cluster].subgraph(self.train_accum_neighbor[cluster])
-            
-            
-            # first select all the overlapping nodes of the train nodes
-            self.sg_mini_train_edges_global[cluster] = {edge for edge in batch_subgraph.edges()}
-            self.sg_mini_train_nodes_global[cluster] = sorted(node for node in batch_subgraph.nodes())
-            
-            
-            mini_mapper = {node: i for i, node in enumerate(self.sg_mini_train_nodes_global[cluster])}
-            sg_node_index_local = sorted(mini_mapper.values())
-            
-            self.sg_mini_train_edges_local[cluster] = \
-                           [ [ mini_mapper[edge[0]], mini_mapper[edge[1]] ] for edge in self.sg_mini_train_edges_global[cluster] ] + \
-                           [ [ mini_mapper[edge[1]], mini_mapper[edge[0]] ] for edge in self.sg_mini_train_edges_global[cluster] ] + \
-                           [ [i, i] for i in sg_node_index_local ]  
-            
-            self.sg_mini_train_edge_weight_local[cluster] = \
-                            [ self.edge_weight_global_dict[(edge[0], edge[1])] for edge in self.sg_mini_train_edges_global[cluster] ] + \
-                            [ self.edge_weight_global_dict[(edge[1], edge[0])] for edge in self.sg_mini_train_edges_global[cluster] ] + \
-                            [ self.edge_weight_global_dict[(i, i)] for i in self.sg_mini_train_nodes_global[cluster] ]
-            
-#             print('train nodes global for the cluster # ' + str(cluster), self.sg_train_nodes_global[cluster])
-            self.sg_mini_train_nodes_local[cluster] = [ mini_mapper[global_idx] for global_idx in self.sg_train_nodes_global[cluster] ]
-            
-            self.sg_mini_train_features[cluster] = self.features[self.sg_mini_train_nodes_global[cluster],:]
-            self.sg_mini_train_labels[cluster] = self.label[self.sg_mini_train_nodes_global[cluster]]
-            
-            # record information 
-            self.info_train_batch_size[cluster] = len(self.sg_mini_train_nodes_global[cluster])
-        
-        # at last, out of all the cluster loop do the data transfer
-        self.transfer_edges_and_nodes()
-        
-        for cluster in self.sg_mini_train_edges_local.keys():
-            self.sg_mini_train_edges_local[cluster] = torch.LongTensor(self.sg_mini_train_edges_local[cluster]).t()
-            self.sg_mini_train_edge_weight_local[cluster] = torch.FloatTensor(self.sg_mini_train_edge_weight_local[cluster])
-            self.sg_mini_train_nodes_local[cluster] = torch.LongTensor(self.sg_mini_train_nodes_local[cluster])
-            self.sg_mini_train_features[cluster] = torch.FloatTensor(self.sg_mini_train_features[cluster])
-            self.sg_mini_train_labels[cluster] = torch.LongTensor(self.sg_mini_train_labels[cluster])
         
     # select the training nodes as the mini-batch for each cluster
     def mini_batch_sample(self, target_seed, k, frac = 1):
@@ -290,6 +196,8 @@ class ClusteringMachine(object):
         # these are currently believed to be the main memory cost, storing all overlapping batch information
         # instead we store all the information inside one list to be stored in a pickle file as out-of-core mini-batch
         
+        # this will get the edge weights in a complete graph
+        
         info_batch_size = {}
                 
         accum_neighbor = self.mini_batch_sample(target_seed, k, frac = fraction)
@@ -303,7 +211,7 @@ class ClusteringMachine(object):
             # store the global edges
             mini_edges_global = {edge for edge in batch_subgraph.edges()}
             
-            
+            # map nodes from global index to local index
             mini_mapper = {node: i for i, node in enumerate(mini_nodes_global)}
             
             # store local index of batch nodes
@@ -314,14 +222,19 @@ class ClusteringMachine(object):
                            [ [ mini_mapper[edge[0]], mini_mapper[edge[1]] ] for edge in mini_edges_global ] + \
                            [ [ mini_mapper[edge[1]], mini_mapper[edge[0]] ] for edge in mini_edges_global ] + \
                            [ [i, i] for i in sorted(mini_mapper.values()) ]  
-            
-            
-            # store local edge weights
+#             self.edge_index_noloop, self.edge_index_selfloop
+#             self.normalized_edge_weight_noloop, self.normalized_edge_weight_selfloop 
+#             # store local edge weights
+
+#             mini_edge_weight_local = \
+#                             [ self.edge_weight_global_dict[(edge[0], edge[1])] for edge in mini_edges_global ] + \
+#                             [ self.edge_weight_global_dict[(edge[1], edge[0])] for edge in mini_edges_global ] + \
+#                             [ self.edge_weight_global_dict[(i, i)] for i in mini_nodes_global ]
+        
             mini_edge_weight_local = \
-                            [ self.edge_weight_global_dict[(edge[0], edge[1])] for edge in mini_edges_global ] + \
-                            [ self.edge_weight_global_dict[(edge[1], edge[0])] for edge in mini_edges_global ] + \
-                            [ self.edge_weight_global_dict[(i, i)] for i in mini_nodes_global ]
-            
+                            [ self.graph.edges[left, right]['weight'] for left, right in mini_edges_global ] + \
+                            [ self.graph.edges[right, left]['weight'] for left, right in mini_edges_global ] + \
+                            [ self.graph.edges[i, i]['weight'] for i in mini_nodes_global ]
             
             # store local features and lables
             mini_features = self.features[mini_nodes_global,:]
@@ -341,10 +254,15 @@ class ClusteringMachine(object):
             batch_file_type_folder = batch_file_folder + data_type + '/'
             batch_file_name = batch_file_type_folder + 'batch_' + str(cluster)
             
+            # store the batch files
+            t0 = time.time()
             os.makedirs(os.path.dirname(batch_file_name), exist_ok=True)
             with open(batch_file_name, "wb") as fp:
                 pickle.dump(minibatch_data, fp)
-                
+            store_time = ((time.time() - t0) * 1000)
+            print('*** Generate {0:s} batch file for # {1:3d} batch, writing the batch file costed {2:.2f} ms ***'.format(data_type, cluster, store_time) )
+#             print('writing to the path: ', batch_file_name)
+            
         return info_batch_size
         
 
@@ -366,8 +284,6 @@ class ClusteringMachine(object):
     def mini_batch_test_clustering(self, batch_file_folder, k, fraction = 1.0, test_batch_num = 2):
         
         sg_test_nodes_global = self.random_clustering(self.test_nodes_global, test_batch_num)
-        self.info_test_batch_size = self.mini_batch_generate(sg_test_nodes_global, k, fraction = 1.0)
+        self.info_test_batch_size = self.mini_batch_generate(batch_file_folder, sg_test_nodes_global, k, fraction = 1.0, data_type = 'test')
         self.info_test_cluster_size = {key : len(val) for key, val in sg_test_nodes_global.items()}
         
-        
-            

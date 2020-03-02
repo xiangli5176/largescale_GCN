@@ -1,4 +1,3 @@
-
 import time
 import torch
 import random
@@ -104,8 +103,12 @@ class ClusterGCNTrainer_mini_Train(object):
                 # for each batch, we load once and train it for multiple epochs:
                 # read in the train data from the pickle files
                 batch_file_name = self.data_folder + 'train/batch_' + str(cluster)
+                
+                t2 = time.time()
                 with open(batch_file_name, "rb") as fp:
                     minibatch_data_train = pickle.load(fp)
+                read_time = (time.time() - t2) * 1000
+                print('*** During training for # {0:3d} batch, reading batch file costed {1:.2f} ms ***'.format(cluster, read_time) )
                 
                 tr_train_nodes, tr_edges, tr_edge_weights, tr_features, tr_target = minibatch_data_train
                 
@@ -165,8 +168,12 @@ class ClusterGCNTrainer_mini_Train(object):
             for cluster in train_clusters:
                 # read in the train data from the pickle files
                 batch_file_name = self.data_folder + 'train/batch_' + str(cluster)
+                
+                t2 = time.time()
                 with open(batch_file_name, "rb") as fp:
                     minibatch_data_train = pickle.load(fp)
+                read_time = (time.time() - t2) * 1000
+                print('*** During training for # {0:3d} batch, reading batch file costed {1:.2f} ms ***'.format(cluster, read_time) )
                 
                 tr_train_nodes, tr_edges, tr_edge_weights, tr_features, tr_target = minibatch_data_train
                 
@@ -215,8 +222,12 @@ class ClusterGCNTrainer_mini_Train(object):
         for cluster in valid_clusters:
             # read in the train data from the pickle files
             batch_file_name = self.data_folder + 'validation/batch_' + str(cluster)
+            
+            t2 = time.time()
             with open(batch_file_name, "rb") as fp:
                 minibatch_data_validation = pickle.load(fp)
+            read_time = (time.time() - t2) * 1000
+            print('*** During validation for # {0:3d} batch, reading batch file costed {1:.2f} ms ***'.format(cluster, read_time) )
 
             valid_validation_nodes, valid_edges, valid_edge_weights, valid_features, valid_target = minibatch_data_validation
             

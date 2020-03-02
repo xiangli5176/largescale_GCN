@@ -5,20 +5,83 @@ import numpy as np
 import os
 import shutil
 import copy
+import csv
 
 import pandas as pd
 import seaborn as sns
 
 from Cluster_Machine import ClusteringMachine
 from Cluster_Trainer import ClusterGCNTrainer_mini_Train
+from torch_scatter import scatter_add
+from torch_geometric.utils import add_remaining_self_loops
 
 
 def check_folder_exist(folder_path):
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
         shutil.rmtree(folder_path)
 
+def print_dir_content_info(path):
+    """
+        print out the file information under the path :  (name, size(KB))
+    """
+    with os.scandir(path) as dir_contents:
+        print('\n Information about the content of ' + path)
+        for entry in dir_contents:
+            if entry.is_file():
+                info = entry.stat()
+                
+                print('File name: [ {} ]; with size: {} KB'.format(entry.name, info.st_size / 1024))
 
-# preprocessing the data: remove all the isolated nodes, otherwise metis won't work normally
+        print()
+# preprocessing the data: 
+# generate the edge_weight after adding self-loops
+def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None, store_path='./tmp/'):
+    """
+        edge_index(ndarray): undirected edge index (two-directions both included)
+        num_nodes(int):  number of nodes inside the graph
+        edge_weight(ndarray): if any weights already assigned, otherwise will be generated 
+        improved(boolean):   may assign 2 to the self loop weight if true
+        store_path(string): the path of the folder to contain all the clustering information files
+    """
+    # calculate the global graph properties, global edge weights
+    if edge_weight is None:
+        edge_weight = torch.ones((edge_index.size(1), ), dtype=dtype, device=edge_index.device)
+
+    fill_value = 1 if not improved else 2
+    # there are num_nodes self-loop edges added after the edge_index
+    edge_index, edge_weight = add_remaining_self_loops(edge_index, edge_weight, fill_value, num_nodes)
+
+    row, col = edge_index   
+    # row includes the starting points of the edges  (first row of edge_index)
+    # col includes the ending points of the edges   (second row of edge_index)
+
+    deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
+    # row records the source nodes, which is the index we are trying to add
+    # deg will record the out-degree of each node of x_i in all edges (x_i, x_j) including self_loops
+
+    deg_inv_sqrt = deg.pow(-0.5)
+    deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+    # normalize the edge weight
+    normalized_edge_weight = deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
+
+    # transfer from tensor to the numpy to construct the dict for the edge_weights
+    edge_index = edge_index.t().numpy()
+    normalized_edge_weight = normalized_edge_weight.numpy()
+
+    num_edge = edge_index.shape[0]
+
+    output = ([edge_index[i][0], edge_index[i][1], normalized_edge_weight[i]] for i in range(num_edge))
+
+    # output the edge weights as the csv file
+    input_edge_weight_txt_file = store_path + 'input_edge_weight_list.csv'
+    os.makedirs(os.path.dirname(input_edge_weight_txt_file), exist_ok=True)
+    with open(input_edge_weight_txt_file, 'w', newline='\n') as fp:
+        wr = csv.writer(fp, delimiter = ' ')
+        for line in output:
+            wr.writerow(line)
+    return input_edge_weight_txt_file
+
+# remove all the isolated nodes, otherwise metis won't work normally
 def filter_out_isolate(edge_index, features, label):
     """
     edge_index: torch.Tensor (2 by 2N) for undirected edges in COO format

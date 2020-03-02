@@ -33,11 +33,6 @@ def set_clustering_machine(data, intermediate_data_folder, test_ratio = 0.05, va
             5) train_frac: each time including fraction of the neigbor nodes in each layer
             6) valid_part_num, train_part_num, test_part_num :  batch number for validation, train and test data correspondingly
     """
-    # set the tmp file for garbage tmp files, just collect the info:
-    tmp_folder = './tmp/'
-    check_folder_exist(tmp_folder)
-    os.makedirs(os.path.dirname(tmp_folder), exist_ok=True)
-    
     # Set the clustering information storing path
     clustering_file_folder = intermediate_data_folder + 'clustering/'
     check_folder_exist(clustering_file_folder)  # if exist then delete
@@ -52,18 +47,15 @@ def set_clustering_machine(data, intermediate_data_folder, test_ratio = 0.05, va
     print('Start to generate the global edge weights')
     t00 = time.time()
     node_count = data.x.shape[0]
-    get_edge_weight(data.edge_index, node_count, store_path = tmp_folder)
+    edge_weight_gen = get_edge_weight(data.edge_index, node_count, clustering_file = clustering_file_folder)
     edge_weight_create = time.time() - t00
     print('Edge weights creation costs a total of {0:.4f} seconds!'.format(edge_weight_create))
     
     print('Start to generate the clustering machine:')
     t0 = time.time()
-    clustering_machine = ClusteringMachine(data.edge_index, data.x, data.y, tmp_folder)
+    clustering_machine = ClusteringMachine(data.edge_index, data.x, data.y, edge_weight_gen, clustering_file_folder)
     batch_machine_create = time.time() - t0
     print('Batch machine creation costs a total of {0:.4f} seconds!'.format(batch_machine_create))
-    
-    # at last output the information inside the folder:
-    print_dir_content_info(tmp_folder)
     
 #     clustering_machine.split_cluster_nodes_edges(test_ratio, validation_ratio, partition_num = train_part_num)
     # mini-batch only: split to train test valid before clustering
@@ -73,14 +65,6 @@ def set_clustering_machine(data, intermediate_data_folder, test_ratio = 0.05, va
     data_split_time = time.time() - t1
     print('Data splitting costs a total of {0:.4f} seconds!'.format(data_split_time))
     
-    print('Start to store the batch machine file:')
-    t3 = time.time()
-    with open(clustering_file_name, "wb") as fp:
-        pickle.dump(clustering_machine, fp)
-    batch_machine_store_time = time.time() - t3
-    print('Storing batch machine after training batches generation costs a total of {0:.4f} seconds!'.format(batch_machine_store_time))
-    print('\n' + '=' * 100)
-    
     # generate mini-batches
     mini_batch_folder = intermediate_data_folder + 'mini_batch_files/'
     check_folder_exist(mini_batch_folder)  # if exist then delete
@@ -89,6 +73,17 @@ def set_clustering_machine(data, intermediate_data_folder, test_ratio = 0.05, va
     clustering_machine.mini_batch_train_clustering(mini_batch_folder, neigh_layer, fraction = train_frac, train_batch_num = train_part_num)
     train_batch_production_time = time.time() - t2
     print('Train batches production costs a total of {0:.4f} seconds!'.format(train_batch_production_time))
+    
+    print('Start to store the batch machine file:')
+    t3 = time.time()
+    with open(clustering_file_name, "wb") as fp:
+        pickle.dump(clustering_machine, fp)
+    batch_machine_store_time = time.time() - t3
+    print('Storing batch machine after training batches generation costs a total of {0:.4f} seconds!'.format(batch_machine_store_time))
+    print('\n' + '=' * 100)
+    
+    return mini_batch_folder
+    
 
 def set_clustering_machine_validation_batch(intermediate_data_folder, neigh_layer = 1, valid_part_num = 1):
     """
@@ -118,6 +113,7 @@ def set_clustering_machine_validation_batch(intermediate_data_folder, neigh_laye
 #     with open(clustering_file_name, "rb") as fp:
 #         clustering_machine = pickle.load(fp)
 
+    return mini_batch_folder
 
 def Cluster_train_valid_batch_run(mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
@@ -207,7 +203,7 @@ if __name__ == '__main__':
     # pc version test on Cora
     from torch_geometric.datasets import Planetoid
     local_data_root = '/media/xiangli/storage1/projects/tmpdata/'
-    test_folder_name = 'Test_graph_weights_file/train_10%_full_neigh_random_mini_epoch_400/'
+    test_folder_name = 'Test_graph_weights/train_10%_full_neigh_random_mini_epoch_400/'
 
     data_name = 'Cora'
     dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
