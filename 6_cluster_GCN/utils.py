@@ -33,6 +33,26 @@ def print_dir_content_info(path):
                 print('File name: [ {} ]; with size: {} KB'.format(entry.name, info.st_size / 1024))
 
         print()
+
+def output_GPU_memory_usage(file_name, target_folder, comment =''):
+    os.makedirs(os.path.dirname(target_folder), exist_ok=True)
+    target_file = target_folder + file_name
+
+    with open(target_file, 'a', newline='\n') as fp:
+        fp.write('\n')
+        fp.write(comment + '\n')
+        fp.write('=' * 80 + '\nWith the Pytorch Version: ' )
+        fp.write(torch.__version__ + '\n')
+        fp.write('-' * 30 + 'info about allocated memory: ' + '-' * 30 + '\n')
+        fp.write('GPU allocated memory is: {}\n'.format(torch.cuda.memory_allocated()))
+        fp.write('GPU max_memory_allocated in bytes: {}\n'.format(torch.cuda.max_memory_allocated()))
+        torch.cuda.reset_max_memory_allocated()
+
+        fp.write('-' * 30 + 'info about cached memory: ' + '\n')
+        fp.write('GPU memory_cached in bytes: {}\n'.format(torch.cuda.memory_cached()))
+        fp.write('GPU max_memory_cached in bytes: {}\n'.format(torch.cuda.max_memory_cached()))
+        torch.cuda.reset_max_memory_cached()
+        
 # preprocessing the data: 
 # generate the edge_weight after adding self-loops
 def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None, store_path='./tmp/'):

@@ -1,0 +1,48 @@
+
+train_batch_node_id, train_batch_node_size
+1,2326
+2,2378
+3,2319
+4,2166
+
+train_batch_edge_id, train_batch_edge_size
+1,17686
+2,19374
+3,16941
+4,16456
+
+train_seed_node_id, train_seed_node_size
+1,493
+2,493
+3,493
+4,492
+
+validation_batch_node_id, validation_batch_node_size
+1,6992
+2,7163
+3,7073
+4,7378
+5,7198
+6,7553
+7,7172
+8,6912
+
+validation_batch_edge_id, validation_batch_edge_size
+1,60950
+2,61761
+3,61291
+4,64020
+5,63118
+6,66189
+7,62306
+8,60200
+
+validation_seed_node_id, validation_seed_node_size
+1,2095
+2,2095
+3,2095
+4,2095
+5,2095
+6,2095
+7,2095
+8,2095

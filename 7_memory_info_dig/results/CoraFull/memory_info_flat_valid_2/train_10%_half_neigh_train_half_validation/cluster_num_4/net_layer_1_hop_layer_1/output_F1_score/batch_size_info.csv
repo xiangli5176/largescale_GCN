@@ -1,0 +1,30 @@
+
+train_batch_node_id, train_batch_node_size
+1,1756
+2,1785
+3,1829
+4,1720
+
+train_batch_edge_id, train_batch_edge_size
+1,11044
+2,10951
+3,11665
+4,11312
+
+train_seed_node_id, train_seed_node_size
+1,495
+2,495
+3,495
+4,493
+
+validation_batch_node_id, validation_batch_node_size
+1,13024
+2,12992
+
+validation_batch_edge_id, validation_batch_edge_size
+1,101528
+2,101356
+
+validation_seed_node_id, validation_seed_node_size
+1,8413
+2,8412

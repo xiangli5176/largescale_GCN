@@ -1,0 +1,70 @@
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18924032
+GPU max_memory_allocated in bytes: 721306624
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18924032
+GPU max_memory_allocated in bytes: 721306624
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18903040
+GPU max_memory_allocated in bytes: 721285632
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18924032
+GPU max_memory_allocated in bytes: 721306624
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18924032
+GPU max_memory_allocated in bytes: 721306624
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18903040
+GPU max_memory_allocated in bytes: 721285632
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
+
+after generating trainer and train minibatches: 
+================================================================================
+With the Pytorch Version: 1.2.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 18903040
+GPU max_memory_allocated in bytes: 721285632
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 1482686464
+GPU max_memory_cached in bytes: 1482686464
