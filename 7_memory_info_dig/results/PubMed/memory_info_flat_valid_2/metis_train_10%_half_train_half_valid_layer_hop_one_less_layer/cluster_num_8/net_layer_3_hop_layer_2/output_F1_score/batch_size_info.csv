@@ -1,0 +1,84 @@
+
+train_batch_node_id, train_batch_node_size
+1,2721
+6,3077
+3,2883
+7,2940
+8,2847
+2,2959
+5,2942
+4,2803
+
+train_batch_edge_id, train_batch_edge_size
+1,18773
+6,22767
+3,20811
+7,20998
+8,21615
+2,21411
+5,20678
+4,20895
+
+train_seed_node_id, train_seed_node_size
+1,246
+6,247
+3,246
+7,246
+8,247
+2,246
+5,246
+4,247
+
+validation_batch_node_id, validation_batch_node_size
+1,14163
+2,13944
+
+validation_batch_edge_id, validation_batch_edge_size
+1,101547
+2,100032
+
+validation_seed_node_id, validation_seed_node_size
+1,8582
+2,8178
+
+train_batch_node_id, train_batch_node_size
+7,2818
+5,2674
+8,2975
+1,3188
+6,2718
+4,2845
+2,2798
+3,3173
+
+train_batch_edge_id, train_batch_edge_size
+7,19908
+5,18802
+8,20941
+1,22688
+6,19628
+4,21269
+2,20306
+3,23627
+
+train_seed_node_id, train_seed_node_size
+7,246
+5,246
+8,247
+1,247
+6,247
+4,247
+2,245
+3,246
+
+validation_batch_node_id, validation_batch_node_size
+2,13896
+1,14207
+
+validation_batch_edge_id, validation_batch_edge_size
+2,100026
+1,101455
+
+validation_seed_node_id, validation_seed_node_size
+2,8135
+1,8625

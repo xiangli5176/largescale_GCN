@@ -1,0 +1,60 @@
+
+train_batch_node_id, train_batch_node_size
+4,1434
+2,1413
+3,1419
+1,1509
+
+train_batch_edge_id, train_batch_edge_size
+4,7984
+2,7777
+3,7993
+1,8913
+
+train_seed_node_id, train_seed_node_size
+4,493
+2,493
+3,493
+1,492
+
+validation_batch_node_id, validation_batch_node_size
+1,12254
+2,11894
+
+validation_batch_edge_id, validation_batch_edge_size
+1,80084
+2,76974
+
+validation_seed_node_id, validation_seed_node_size
+1,8600
+2,8160
+
+train_batch_node_id, train_batch_node_size
+1,1347
+2,1496
+4,1438
+3,1501
+
+train_batch_edge_id, train_batch_edge_size
+1,7529
+2,8784
+4,7980
+3,8635
+
+train_seed_node_id, train_seed_node_size
+1,492
+2,493
+4,493
+3,493
+
+validation_batch_node_id, validation_batch_node_size
+1,12322
+2,11845
+
+validation_batch_edge_id, validation_batch_edge_size
+1,80926
+2,76261
+
+validation_seed_node_id, validation_seed_node_size
+1,8625
+2,8135
