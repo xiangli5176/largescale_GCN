@@ -197,15 +197,15 @@ if __name__ == '__main__':
     # layers = [[32]]
 
 
-    step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers)
+    # step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers)
 
-    step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5)
+    # step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5)
 
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, valid_part_num = 128)
+    # step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, valid_part_num = 128)
 
 
-    step3_run_train_batch(data, data_name, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20)
+    # step3_run_train_batch(data, data_name, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, \
+    #                 dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20)
 
     step4_run_validation_batch(data, data_name, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, \
                     dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, valid_part_num = 1)

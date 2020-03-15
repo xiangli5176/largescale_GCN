@@ -109,7 +109,7 @@ def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7,
     return validation_accuracy, validation_f1, time_total_train, time_data_load
 
 
-def step3_run_train_batch(data, data_name, dataset, image_data_path, intermediate_data_path, partition_nums, layers, \
+def step3_run_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, \
                     dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20):            
     for partn in partition_nums:
         for GCN_layer in layers:
@@ -132,7 +132,7 @@ def step3_run_train_batch(data, data_name, dataset, image_data_path, intermediat
                                              train_part_num = 1, test_part_num = 1)
             
 
-def step4_run_validation_batch(data, data_name, dataset, image_data_path, intermediate_data_path, partition_nums, layers, \
+def step4_run_validation_batch(image_data_path, intermediate_data_path, partition_nums, layers, \
                     dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, valid_part_num = 2):            
     for partn in partition_nums:
         for GCN_layer in layers:
@@ -167,19 +167,21 @@ def step4_run_validation_batch(data, data_name, dataset, image_data_path, interm
             draw_data_multi_tests(time_load, data_name, 'load_time_cluster_num_' + str(partn) + '_hop_' + str(hop_layer), 'models', 'Load Time (ms)')
 
 
+
 if __name__ == '__main__':
+    data_name = 'Reddit'
+
     from torch_geometric.datasets import Reddit
     local_data_root = '~/GCN/Datasets/'
-    test_folder_name = 'train_10%_full_neigh/'
-    
-    data_name = 'Reddit'
     dataset = Reddit(root = local_data_root + '/' + data_name)
     data = dataset[0]
-    image_data_path = './results/' + data_name + '/' + test_folder_name
-    # set the current folder as the intermediate data folder so that we can easily copy either clustering 
-    intermediate_data_folder = './'
+    
     partition_nums = [32]
     layers = [[]]
+
+    test_folder_name = 'train_10%_full_neigh/'
+    image_data_path = './results/' + data_name + '/' + test_folder_name
+    intermediate_data_folder = './'
 
     # # pc version test on Cora
     # from torch_geometric.datasets import Planetoid
@@ -197,15 +199,16 @@ if __name__ == '__main__':
     # layers = [[32]]
 
 
-    step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers)
+    step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers, valid_part_num = 4)
 
-    step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5)
+    # step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5, batch_range = (0, 2))
 
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, valid_part_num = 128)
+    # step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, batch_range = (0, 2))
 
+    # step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, batch_range = (2, 4))
 
-    step3_run_train_batch(data, data_name, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20)
+    # step3_run_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, \
+    #                 dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20)
 
-    step4_run_validation_batch(data, data_name, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, valid_part_num = 1)
+    # step4_run_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, \
+    #                 dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, valid_part_num = 4)

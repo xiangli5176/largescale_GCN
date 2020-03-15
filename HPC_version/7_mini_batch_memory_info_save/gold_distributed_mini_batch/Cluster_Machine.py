@@ -16,6 +16,7 @@ from itertools import chain
 
 from utils import *
 
+
 class ClusteringMachine(object):
     """
     Clustering the graph, feature set and label. Performed on the CPU side
@@ -34,6 +35,7 @@ class ClusteringMachine(object):
         # store the information folder for memory tracing
         self.tmp_folder = tmp_folder
         self.info_folder = info_folder
+        os.makedirs(os.path.dirname(self.info_folder), exist_ok=True)
         
         edge_weight_file = self.tmp_folder + 'input_edge_weight_list.csv'
         self.graph = nx.read_weighted_edgelist(edge_weight_file, create_using = nx.Graph, nodetype = int)
@@ -47,7 +49,7 @@ class ClusteringMachine(object):
         self.label_count = len(np.unique(self.label.numpy()) )
     
     # 2) first assign train, test, validation nodes, split edges; this is based on the assumption that the clustering is no longer that important
-    def split_whole_nodes_edges_then_cluster(self, test_ratio, validation_ratio):
+    def split_whole_nodes_edges_then_cluster(self, test_ratio, validation_ratio, train_batch_num = 2, valid_batch_num = 2, test_batch_num = 2):
         """
             Only split nodes
             First create train-test splits, then split train and validation into different batch seeds
@@ -55,13 +57,21 @@ class ClusteringMachine(object):
                 1) ratio of test, validation
                 2) partition number of train nodes, test nodes, validation nodes
             Output:
-                1) sg_validation_nodes_global, sg_train_nodes_global, sg_test_nodes_global
+                1) self.sg_validation_nodes_global, self.sg_train_nodes_global, self.sg_test_nodes_global
         """
         relative_test_ratio = (test_ratio) / (1 - validation_ratio)
         
         # first divide the nodes for the whole graph, result will always be a list of lists 
-        model_nodes_global, self.valid_nodes_global = train_test_split(list(self.graph.nodes()), test_size = validation_ratio)
-        self.train_nodes_global, self.test_nodes_global = train_test_split(model_nodes_global, test_size = relative_test_ratio)
+        model_nodes_global, valid_nodes_global = train_test_split(list(self.graph.nodes()), test_size = validation_ratio)
+        train_nodes_global, test_nodes_global = train_test_split(model_nodes_global, test_size = relative_test_ratio)
+        
+#         self.sg_train_nodes_global = self.random_clustering(train_nodes_global, train_batch_num)
+#         self.sg_validation_nodes_global = self.random_clustering(valid_nodes_global, valid_batch_num)
+#         self.sg_test_nodes_global = self.random_clustering(test_nodes_global, test_batch_num)
+
+        self.sg_train_nodes_global = self.metis_clustering(train_nodes_global, train_batch_num)
+        self.sg_validation_nodes_global = self.metis_clustering(valid_nodes_global, valid_batch_num)
+        self.sg_test_nodes_global = self.metis_clustering(test_nodes_global, test_batch_num)
         
     # just allocate each node to arandom cluster, store the membership inside each dict
     def random_clustering(self, target_nodes, partition_num):
@@ -129,7 +139,7 @@ class ClusteringMachine(object):
             accum_neighbor[cluster] |= neighbor
         return accum_neighbor
         
-    def mini_batch_generate(self, batch_file_folder, target_seed, k, fraction = 1.0):
+    def mini_batch_generate(self, batch_file_folder, target_seed, k, fraction = 1.0, batch_range = (0, 1)):
         """
             create the mini-batch focused on the train nodes only, include a total of k layers of neighbors of the original training nodes
             k: number of layers of neighbors for each training node
@@ -155,8 +165,8 @@ class ClusteringMachine(object):
         info_batch_edge_size = {}
                 
         accum_neighbor = self.mini_batch_sample(target_seed, k, frac = fraction)
-        
-        for cluster in target_seed.keys():
+        batch_start, batch_end = batch_range
+        for cluster in range(batch_start, batch_end):
             batch_subgraph = self.graph.subgraph(accum_neighbor[cluster])
             
              # first select all the overlapping nodes of the train nodes
@@ -215,7 +225,7 @@ class ClusteringMachine(object):
     
     def save_info_dict(self, data, file_name, target_folder, header = 'key, value'):
         # output the batch size information as the csv file
-        os.makedirs(os.path.dirname(target_folder), exist_ok=True)
+#         os.makedirs(os.path.dirname(target_folder), exist_ok=True)
         target_file = target_folder + file_name
         
         with open(target_file, 'a', newline='\n') as fp:
@@ -225,45 +235,46 @@ class ClusteringMachine(object):
             for key, val in data.items():
                 wr.writerow([key+1, val])
     
-    def mini_batch_train_clustering(self, batch_folder, k, fraction = 1.0, train_batch_num = 2):
+    def mini_batch_train_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1)):
+        """
+            batch_folder: to save the batch file to this target folder 
+            k:  number of hop of neighbor layer
+            fraction:  fraction of each neighbor layer
+            batch_range:   generate the batch from this range [start, end)  
+        """
         data_type = 'train'
         batch_file_folder = batch_folder + data_type + '/'
-        check_folder_exist(batch_file_folder)
+#         check_folder_exist(batch_file_folder)
         os.makedirs(os.path.dirname(batch_file_folder), exist_ok=True)
         
-#         sg_train_nodes_global = self.random_clustering(self.train_nodes_global, train_batch_num)
-        sg_train_nodes_global = self.metis_clustering(self.train_nodes_global, train_batch_num)
+        self.info_train_batch_node_size, self.info_train_batch_edge_size  = self.mini_batch_generate(batch_file_folder, self.sg_train_nodes_global, k, fraction = fraction, batch_range = batch_range)
+        self.info_train_seed_size = {key : len(val) for key, val in self.sg_train_nodes_global.items()}
         
-        self.info_train_batch_node_size, self.info_train_batch_edge_size  = self.mini_batch_generate(batch_file_folder, sg_train_nodes_global, k, fraction = fraction)
-        self.info_train_seed_size = {key : len(val) for key, val in sg_train_nodes_global.items()}
+        self.save_info_dict(self.info_train_batch_node_size, 'train_batch_size_info.csv', self.info_folder, header = 'train_batch_node_id, train_batch_node_size')
+        self.save_info_dict(self.info_train_batch_edge_size, 'train_batch_size_info.csv', self.info_folder, header = 'train_batch_edge_id, train_batch_edge_size')
+        self.save_info_dict(self.info_train_seed_size, 'train_batch_size_info.csv', self.info_folder, header = 'train_seed_node_id, train_seed_node_size')
         
-        self.save_info_dict(self.info_train_batch_node_size, 'batch_size_info.csv', self.info_folder, header = 'train_batch_node_id, train_batch_node_size')
-        self.save_info_dict(self.info_train_batch_edge_size, 'batch_size_info.csv', self.info_folder, header = 'train_batch_edge_id, train_batch_edge_size')
-        self.save_info_dict(self.info_train_seed_size, 'batch_size_info.csv', self.info_folder, header = 'train_seed_node_id, train_seed_node_size')
-        
-    def mini_batch_validation_clustering(self, batch_folder, k, fraction = 1.0, valid_batch_num = 2):
+    def mini_batch_validation_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1)):
         data_type = 'validation'
         batch_file_folder = batch_folder + data_type + '/'
-        check_folder_exist(batch_file_folder)
+#         check_folder_exist(batch_file_folder)
         os.makedirs(os.path.dirname(batch_file_folder), exist_ok=True)
-#         sg_validation_nodes_global = self.random_clustering(self.valid_nodes_global, valid_batch_num)
-        sg_validation_nodes_global = self.metis_clustering(self.valid_nodes_global, valid_batch_num)
         
-        self.info_validation_batch_node_size, self.info_validation_batch_edge_size = self.mini_batch_generate(batch_file_folder, sg_validation_nodes_global, k, fraction = fraction)
-        self.info_validation_seed_size = {key : len(val) for key, val in sg_validation_nodes_global.items()}
+        self.info_validation_batch_node_size, self.info_validation_batch_edge_size = self.mini_batch_generate(batch_file_folder, self.sg_validation_nodes_global, k, fraction = fraction, batch_range = batch_range)
+        self.info_validation_seed_size = {key : len(val) for key, val in self.sg_validation_nodes_global.items()}
         
-        self.save_info_dict(self.info_validation_batch_node_size, 'batch_size_info.csv', self.info_folder, header = 'validation_batch_node_id, validation_batch_node_size')
-        self.save_info_dict(self.info_validation_batch_edge_size, 'batch_size_info.csv', self.info_folder, header = 'validation_batch_edge_id, validation_batch_edge_size')
-        self.save_info_dict(self.info_validation_seed_size, 'batch_size_info.csv', self.info_folder, header = 'validation_seed_node_id, validation_seed_node_size')
+        self.save_info_dict(self.info_validation_batch_node_size, 'validation_batch_size_info.csv', self.info_folder, header = 'validation_batch_node_id, validation_batch_node_size')
+        self.save_info_dict(self.info_validation_batch_edge_size, 'validation_batch_size_info.csv', self.info_folder, header = 'validation_batch_edge_id, validation_batch_edge_size')
+        self.save_info_dict(self.info_validation_seed_size, 'validation_batch_size_info.csv', self.info_folder, header = 'validation_seed_node_id, validation_seed_node_size')
         
-    def mini_batch_test_clustering(self, batch_folder, k, fraction = 1.0, test_batch_num = 2):
+    def mini_batch_test_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1)):
         data_type = 'test'
         batch_file_folder = batch_folder + data_type + '/'
-        check_folder_exist(batch_file_folder)
+#         check_folder_exist(batch_file_folder)
         os.makedirs(os.path.dirname(batch_file_folder), exist_ok=True)
-#         sg_test_nodes_global = self.random_clustering(self.test_nodes_global, test_batch_num)
-        sg_test_nodes_global = self.metis_clustering(self.test_nodes_global, test_batch_num)
-        self.info_test_batch_node_size, self.info_test_batch_edge_size = self.mini_batch_generate(batch_file_folder, sg_test_nodes_global, k, fraction = fraction)
-        self.info_test_seed_size = {key : len(val) for key, val in sg_test_nodes_global.items()}
+    
+        self.info_test_batch_node_size, self.info_test_batch_edge_size = self.mini_batch_generate(batch_file_folder, self.sg_test_nodes_global, k, fraction = fraction, batch_range = batch_range)
+        self.info_test_seed_size = {key : len(val) for key, val in self.sg_test_nodes_global.items()}
+        
         self.save_info_dict(self.info_test_batch_node_size, 'batch_size_info.csv', self.info_folder, header = 'test_batch_node_id, test_batch_node_size')
         
