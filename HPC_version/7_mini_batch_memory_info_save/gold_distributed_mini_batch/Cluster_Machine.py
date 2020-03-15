@@ -21,7 +21,7 @@ class ClusteringMachine(object):
     """
     Clustering the graph, feature set and label. Performed on the CPU side
     """
-    def __init__(self, edge_index, features, label, tmp_folder = './tmp/', info_folder = './info/'):
+    def __init__(self, edge_index, features, label, tmp_folder = './tmp/'):
         """
         :param edge_index: COO format of the edge indices.
         :param features: Feature matrix (ndarray).
@@ -34,8 +34,6 @@ class ClusteringMachine(object):
         self.edge_index = edge_index
         # store the information folder for memory tracing
         self.tmp_folder = tmp_folder
-        self.info_folder = info_folder
-        os.makedirs(os.path.dirname(self.info_folder), exist_ok=True)
         
         edge_weight_file = self.tmp_folder + 'input_edge_weight_list.csv'
         self.graph = nx.read_weighted_edgelist(edge_weight_file, create_using = nx.Graph, nodetype = int)
@@ -235,9 +233,10 @@ class ClusteringMachine(object):
             for key, val in data.items():
                 wr.writerow([key+1, val])
     
-    def mini_batch_train_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1)):
+    def mini_batch_train_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1), info_folder = './info/', info_file = 'train_batch_size_info.csv'):
         """
-            batch_folder: to save the batch file to this target folder 
+            batch_folder : to save the batch file to this target folder 
+            info_folder : to save the batch information as csv file to this folder
             k:  number of hop of neighbor layer
             fraction:  fraction of each neighbor layer
             batch_range:   generate the batch from this range [start, end)  
@@ -250,11 +249,11 @@ class ClusteringMachine(object):
         self.info_train_batch_node_size, self.info_train_batch_edge_size  = self.mini_batch_generate(batch_file_folder, self.sg_train_nodes_global, k, fraction = fraction, batch_range = batch_range)
         self.info_train_seed_size = {key : len(val) for key, val in self.sg_train_nodes_global.items()}
         
-        self.save_info_dict(self.info_train_batch_node_size, 'train_batch_size_info.csv', self.info_folder, header = 'train_batch_node_id, train_batch_node_size')
-        self.save_info_dict(self.info_train_batch_edge_size, 'train_batch_size_info.csv', self.info_folder, header = 'train_batch_edge_id, train_batch_edge_size')
-        self.save_info_dict(self.info_train_seed_size, 'train_batch_size_info.csv', self.info_folder, header = 'train_seed_node_id, train_seed_node_size')
+        self.save_info_dict(self.info_train_batch_node_size, info_file, info_folder, header = 'train_batch_node_id, train_batch_node_size')
+        self.save_info_dict(self.info_train_batch_edge_size, info_file, info_folder, header = 'train_batch_edge_id, train_batch_edge_size')
+        self.save_info_dict(self.info_train_seed_size, info_file, info_folder, header = 'train_seed_node_id, train_seed_node_size')
         
-    def mini_batch_validation_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1)):
+    def mini_batch_validation_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1), info_folder = './info/', info_file = 'validation_batch_size_info.csv'):
         data_type = 'validation'
         batch_file_folder = batch_folder + data_type + '/'
 #         check_folder_exist(batch_file_folder)
@@ -263,11 +262,11 @@ class ClusteringMachine(object):
         self.info_validation_batch_node_size, self.info_validation_batch_edge_size = self.mini_batch_generate(batch_file_folder, self.sg_validation_nodes_global, k, fraction = fraction, batch_range = batch_range)
         self.info_validation_seed_size = {key : len(val) for key, val in self.sg_validation_nodes_global.items()}
         
-        self.save_info_dict(self.info_validation_batch_node_size, 'validation_batch_size_info.csv', self.info_folder, header = 'validation_batch_node_id, validation_batch_node_size')
-        self.save_info_dict(self.info_validation_batch_edge_size, 'validation_batch_size_info.csv', self.info_folder, header = 'validation_batch_edge_id, validation_batch_edge_size')
-        self.save_info_dict(self.info_validation_seed_size, 'validation_batch_size_info.csv', self.info_folder, header = 'validation_seed_node_id, validation_seed_node_size')
+        self.save_info_dict(self.info_validation_batch_node_size, info_file, info_folder, header = 'validation_batch_node_id, validation_batch_node_size')
+        self.save_info_dict(self.info_validation_batch_edge_size, info_file, info_folder, header = 'validation_batch_edge_id, validation_batch_edge_size')
+        self.save_info_dict(self.info_validation_seed_size, info_file, info_folder, header = 'validation_seed_node_id, validation_seed_node_size')
         
-    def mini_batch_test_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1)):
+    def mini_batch_test_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1), info_folder = './info/', info_file = 'test_batch_size_info.csv'):
         data_type = 'test'
         batch_file_folder = batch_folder + data_type + '/'
 #         check_folder_exist(batch_file_folder)
@@ -276,5 +275,5 @@ class ClusteringMachine(object):
         self.info_test_batch_node_size, self.info_test_batch_edge_size = self.mini_batch_generate(batch_file_folder, self.sg_test_nodes_global, k, fraction = fraction, batch_range = batch_range)
         self.info_test_seed_size = {key : len(val) for key, val in self.sg_test_nodes_global.items()}
         
-        self.save_info_dict(self.info_test_batch_node_size, 'batch_size_info.csv', self.info_folder, header = 'test_batch_node_id, test_batch_node_size')
+        self.save_info_dict(self.info_test_batch_node_size, info_file, info_folder, header = 'test_batch_node_id, test_batch_node_size')
         

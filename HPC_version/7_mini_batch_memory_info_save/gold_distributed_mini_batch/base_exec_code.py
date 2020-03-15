@@ -21,6 +21,7 @@ from Custom_GCNConv import Net
 from Cluster_Machine import ClusteringMachine
 from Cluster_Trainer import ClusterGCNTrainer_mini_Train
 
+
 ''' Execute the testing program '''
 def set_clustering_machine(data, image_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = 2, valid_batch_num = 2, test_batch_num = 2):
     """
@@ -57,7 +58,7 @@ def set_clustering_machine(data, image_path, intermediate_data_folder, test_rati
     
     print('Start to generate the clustering machine:')
     t0 = time.time()
-    clustering_machine = ClusteringMachine(data.edge_index, data.x, data.y, tmp_folder, info_folder = './info/')
+    clustering_machine = ClusteringMachine(data.edge_index, data.x, data.y, tmp_folder)
     batch_machine_create = time.time() - t0
     print('Batch machine creation costs a total of {0:.4f} seconds!'.format(batch_machine_create))
     
@@ -81,10 +82,11 @@ def set_clustering_machine(data, image_path, intermediate_data_folder, test_rati
     print('Storing batch machine after training batches generation costs a total of {0:.4f} seconds!'.format(batch_machine_store_time))
     print('\n' + '=' * 100)
     # output the memory usage information
-    output_GPU_memory_usage('Memory_use_setting_cluster.txt', './info/', comment ='after setting clustering machine: ')
+    output_GPU_memory_usage('Memory_use_setting_cluster.txt', './info_GPU_memory/', comment ='after setting clustering machine: ')
     
     
-def set_clustering_machine_train_batch(image_path, intermediate_data_folder, neigh_layer = 1, train_frac = 1.0, batch_range = (0, 1)):
+def set_clustering_machine_train_batch(image_path, intermediate_data_folder, neigh_layer = 1, train_frac = 1.0, \
+                                       batch_range = (0, 1), info_folder = './info_train_batch/', info_file = 'train_batch_size_info.csv'):
     """
         Generate the train batches
     """
@@ -101,16 +103,19 @@ def set_clustering_machine_train_batch(image_path, intermediate_data_folder, nei
     mini_batch_folder = intermediate_data_folder
 #     check_folder_exist(mini_batch_folder)  # if exist then delete
     print('Start to generate the training batches:')
+    os.makedirs(os.path.dirname(info_folder), exist_ok=True)
     t2 = time.time()
-    clustering_machine.mini_batch_train_clustering(mini_batch_folder, neigh_layer, fraction = train_frac, batch_range = batch_range)
+    clustering_machine.mini_batch_train_clustering(mini_batch_folder, neigh_layer, fraction = train_frac, \
+                                                   batch_range = batch_range, info_folder = info_folder, info_file = info_file)
     train_batch_production_time = time.time() - t2
     print('Train batches production costs a total of {0:.4f} seconds!'.format(train_batch_production_time))
     print_dir_content_info(mini_batch_folder + 'train/')
     print('=' * 100)
     # output the memory usage information
-    output_GPU_memory_usage('Memory_use_setting_cluster.txt', './info/', comment ='after generating train batches: ')
+    output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating train batches: ')
 
-def set_clustering_machine_validation_batch(image_path, intermediate_data_folder, neigh_layer = 1, validation_frac = 1.0, batch_range = (0, 1)):
+def set_clustering_machine_validation_batch(image_path, intermediate_data_folder, neigh_layer = 1, validation_frac = 1.0, \
+                                            batch_range = (0, 1), info_folder = './info_validation_batch/', info_file = 'validation_batch_size_info.csv'):
     """
         Generate the validation batches
     """
@@ -124,17 +129,19 @@ def set_clustering_machine_validation_batch(image_path, intermediate_data_folder
     batch_machine_read = time.time() - t0
     print('Batch machine reading costs a total of {0:.4f} seconds!'.format(batch_machine_read))
     
-    print('Start to generate the validation batches:')
     mini_batch_folder = intermediate_data_folder
+    print('Start to generate the validation batches:')
+    os.makedirs(os.path.dirname(info_folder), exist_ok=True)
     t1 = time.time()
     # for validation , fraction has to be 1.0 so that to include the information form original graph
-    clustering_machine.mini_batch_validation_clustering(mini_batch_folder, neigh_layer, fraction = validation_frac, batch_range = batch_range)
+    clustering_machine.mini_batch_validation_clustering(mini_batch_folder, neigh_layer, fraction = validation_frac, \
+                                                        batch_range = batch_range, info_folder = info_folder, info_file = info_file)
     validation_batch_production_time = time.time() - t1
     print('Validation batches production costs a total of {0:.4f} seconds!'.format(validation_batch_production_time))
     print_dir_content_info(mini_batch_folder + 'validation/')
     print('=' * 100)
     # output the memory usage information
-    output_GPU_memory_usage('Memory_use_setting_cluster.txt', './info/', comment ='after generating validation batches: ')
+    output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating validation batches: ')
 
 def Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
@@ -165,7 +172,7 @@ def Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, i
     store_trainer = time.time() - t2
     print('Storing the trainer costs a total of {0:.4f} seconds!'.format(store_trainer))
     print('-' * 80)
-    output_GPU_memory_usage('Memory_use_batch_train.txt', './info/', comment ='after generating trainer and train minibatches: ')
+    output_GPU_memory_usage('Memory_use_batch_train.txt', './info_GPU_memory/', comment ='after generating trainer and train minibatches: ')
 
 def Cluster_valid_batch_run(trainer_id, mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
@@ -187,7 +194,7 @@ def Cluster_valid_batch_run(trainer_id, mini_batch_folder, data_name, dataset, i
     time_train_total = gcn_trainer.time_train_total
     time_data_load = gcn_trainer.time_train_load_data
     
-    output_GPU_memory_usage('Memory_use_batch_validation.txt', './info/', comment ='after validating minibatches: ')
+    output_GPU_memory_usage('Memory_use_batch_validation.txt', './info_GPU_memory/', comment ='after validating minibatches: ')
     
     return validation_accuracy, validation_F1, time_train_total, time_data_load
 
@@ -214,7 +221,7 @@ def Cluster_train_valid_batch_investigate(mini_batch_folder, data_name, dataset,
     print('In-process Training costs a total of {0:.4f} seconds!'.format(train_period))
     print('=' * 100)
     
-    output_GPU_memory_usage('Memory_use_investigate_batch_train_valid.txt', './info/', comment ='after train_validation investigate batches  minibatches: ')
+    output_GPU_memory_usage('Memory_use_investigate_batch_train_valid.txt', './info_GPU_memory/', comment ='after train_validation investigate batches  minibatches: ')
     return Train_period_F1, Train_period_accuracy
 
 # for the purpose for tuning 
@@ -249,60 +256,8 @@ def Cluster_train_valid_batch_run(mini_batch_folder, data_name, dataset, image_p
     time_train_total = gcn_trainer.time_train_total
     time_data_load = gcn_trainer.time_train_load_data
     
-    output_GPU_memory_usage('Memory_use_train_validation_together.txt', './info/', comment ='after train_validation batches  minibatches together: ')
+    output_GPU_memory_usage('Memory_use_train_validation_together.txt', './info_GPU_memory/', comment ='after train_validation batches  minibatches together: ')
     return validation_accuracy, validation_F1, time_train_total, time_data_load
-
-
-
-
-def step0_generate_clustering_machine(data, image_data_path, intermediate_data_path, partition_nums, layers, valid_part_num = 2):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
-
-            intermediate_data_folder = intermediate_data_path
-            
-            # set the batch for train
-            set_clustering_machine(data, img_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = partn, valid_batch_num = valid_part_num, test_batch_num = 2)
-
-def step1_generate_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, train_frac = 1.0, batch_range = (0, 1)):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
-
-            intermediate_data_folder = intermediate_data_path
-            
-            # set the batch for train
-            set_clustering_machine_train_batch(img_path, intermediate_data_folder, neigh_layer = hop_layer, train_frac = train_frac, batch_range = batch_range)
-
-    
-def step2_generate_validation_batch(image_data_path, intermediate_data_path, partition_nums, layers, validation_frac = 1.0, batch_range = (0, 1)):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
-
-            intermediate_data_folder = intermediate_data_path
-            # set the batch for validation
-            set_clustering_machine_validation_batch(img_path, intermediate_data_folder, neigh_layer = hop_layer, validation_frac = validation_frac, batch_range = batch_range )
-
 
 
 
@@ -324,8 +279,3 @@ if __name__ == '__main__':
     partition_nums = [2]
     layers = [[32]]
 
-    step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers)
-
-    step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5)
-
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, valid_part_num = 2)

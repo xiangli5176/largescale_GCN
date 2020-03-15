@@ -109,6 +109,59 @@ def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7,
     return validation_accuracy, validation_f1, time_total_train, time_data_load
 
 
+
+def step0_generate_clustering_machine(data, image_data_path, intermediate_data_path, partition_nums, layers, valid_part_num = 2):            
+    for partn in partition_nums:
+        for GCN_layer in layers:
+            net_layer = len(GCN_layer) + 1
+            hop_layer = net_layer - 1
+            
+            # set the save path
+            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
+            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
+            img_path += 'output_f1_score/'  # further subfolder for different task
+
+            intermediate_data_folder = intermediate_data_path
+            
+            # set the batch for train
+            set_clustering_machine(data, img_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = partn, valid_batch_num = valid_part_num, test_batch_num = 2)
+
+def step1_generate_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, train_frac = 1.0, \
+                               batch_range = (0, 1), info_folder = './info/', info_file = 'train_batch_size_info.csv'):            
+    for partn in partition_nums:
+        for GCN_layer in layers:
+            net_layer = len(GCN_layer) + 1
+            hop_layer = net_layer - 1
+            
+            # set the save path
+            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
+            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
+            img_path += 'output_f1_score/'  # further subfolder for different task
+
+            intermediate_data_folder = intermediate_data_path
+            
+            # set the batch for train
+            set_clustering_machine_train_batch(img_path, intermediate_data_folder, neigh_layer = hop_layer, train_frac = train_frac, \
+                                               batch_range = batch_range, info_folder = info_folder, info_file = info_file)
+
+    
+def step2_generate_validation_batch(image_data_path, intermediate_data_path, partition_nums, layers, validation_frac = 1.0, \
+                                    batch_range = (0, 1), info_folder = './info/', info_file = 'validation_batch_size_info.csv'):            
+    for partn in partition_nums:
+        for GCN_layer in layers:
+            net_layer = len(GCN_layer) + 1
+            hop_layer = net_layer - 1
+            
+            # set the save path
+            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
+            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
+            img_path += 'output_f1_score/'  # further subfolder for different task
+
+            intermediate_data_folder = intermediate_data_path
+            # set the batch for validation
+            set_clustering_machine_validation_batch(img_path, intermediate_data_folder, neigh_layer = hop_layer, validation_frac = validation_frac, \
+                                                    batch_range = batch_range, info_folder = info_folder, info_file = info_file)
+       
 def step3_run_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, \
                     dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20):            
     for partn in partition_nums:
@@ -200,11 +253,14 @@ if __name__ == '__main__':
 
     step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers, valid_part_num = 4)
 
-    step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5, batch_range = (0, 2))
+    step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5, \
+                            batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info.csv')
 
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, batch_range = (0, 2))
+    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, \
+                                    batch_range = (0, 2), info_folder = './info_validation_batch/', info_file = 'validation_batch_size_info_{}.csv'.format('[0,2)'))
 
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, batch_range = (2, 4))
+    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, \
+                                    batch_range = (2, 4), info_folder = './info_validation_batch/', info_file = 'validation_batch_size_info_{}.csv'.format('[2,4)'))
 
     step3_run_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, \
                     dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20)
