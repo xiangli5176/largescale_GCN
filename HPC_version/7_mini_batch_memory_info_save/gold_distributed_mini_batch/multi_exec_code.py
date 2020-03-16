@@ -36,7 +36,7 @@ def execute_one_train(mini_batch_folder, image_path, repeate_time = 5, input_lay
     for trainer_id in range(repeate_time):
         model_res = []
         
-        Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, image_path, input_layer = input_layer, epochs=epoch_num, \
+        Cluster_train_batch_run(trainer_id, mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
                                                          dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
                                                          train_part_num = train_part_num, test_part_num = test_part_num)
         
@@ -56,7 +56,7 @@ def execute_one_validation(mini_batch_folder, image_path, repeate_time = 5, inpu
     graph_model = ['batch_valid']
     for trainer_id in range(repeate_time):
         model_res = []
-        model_res.append(Cluster_valid_batch_run(trainer_id, mini_batch_folder, data_name, dataset, image_path, input_layer = input_layer, epochs=epoch_num, \
+        model_res.append(Cluster_valid_batch_run(trainer_id, mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
                                                          dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
                                                       valid_part_num = valid_part_num)[:4])
         
@@ -74,7 +74,7 @@ def execute_investigate(mini_batch_folder, image_path, repeate_time = 5, input_l
     Train_peroid_accuracy = {}
     
     for i in range(repeate_time):
-        Train_peroid_f1[i], Train_peroid_accuracy[i] = Cluster_train_valid_batch_investigate(mini_batch_folder, data_name, dataset, image_path, input_layer = input_layer, epochs=epoch_num, \
+        Train_peroid_f1[i], Train_peroid_accuracy[i] = Cluster_train_valid_batch_investigate(mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
                                             dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, output_period = output_period, \
                                                                     valid_part_num = valid_part_num, train_part_num = train_part_num, test_part_num = test_part_num)
         
@@ -96,7 +96,7 @@ def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7,
     time_total_train = {}
     time_data_load = {}
     
-    res = [{tune_val : Cluster_train_valid_batch_run(mini_batch_folder, data_name, dataset, image_path, input_layer = input_layer, epochs=epoch_num, \
+    res = [{tune_val : Cluster_train_valid_batch_run(mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
             dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = tune_val, \
             valid_part_num = valid_part_num, train_part_num = train_part_num, test_part_num = test_part_num) for tune_val in tune_params} for i in range(repeate_time)]
     
@@ -110,7 +110,7 @@ def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7,
 
 
 
-def step0_generate_clustering_machine(data, image_data_path, intermediate_data_path, partition_nums, layers, valid_part_num = 2):            
+def step0_generate_clustering_machine(data, dataset, image_data_path, intermediate_data_path, partition_nums, layers, valid_part_num = 2):            
     for partn in partition_nums:
         for GCN_layer in layers:
             net_layer = len(GCN_layer) + 1
@@ -124,7 +124,7 @@ def step0_generate_clustering_machine(data, image_data_path, intermediate_data_p
             intermediate_data_folder = intermediate_data_path
             
             # set the batch for train
-            set_clustering_machine(data, img_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = partn, valid_batch_num = valid_part_num, test_batch_num = 2)
+            set_clustering_machine(data, dataset, img_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = partn, valid_batch_num = valid_part_num, test_batch_num = 2)
 
 def step1_generate_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, train_frac = 1.0, \
                                batch_range = (0, 1), info_folder = './info/', info_file = 'train_batch_size_info.csv'):            
@@ -173,14 +173,9 @@ def step3_run_train_batch(image_data_path, intermediate_data_path, partition_num
             print('Start running training for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
             img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
             img_path += 'output_f1_score/'  # further subfolder for different task
-
-            intermediate_data_folder = intermediate_data_path
-            
             # set the batch for validation and train
-            mini_batch_folder = intermediate_data_folder
-            
             # start to run the model, train and validation 
-            execute_one_train(mini_batch_folder, img_path, repeate_time = 7, input_layer = GCN_layer, epoch_num = 400, 
+            execute_one_train(intermediate_data_path, img_path, repeate_time = 7, input_layer = GCN_layer, epoch_num = 400, 
                                             dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
                                              train_part_num = 1, test_part_num = 1)
             
@@ -197,12 +192,8 @@ def step4_run_validation_batch(image_data_path, intermediate_data_path, partitio
             img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
             img_path += 'output_f1_score/'  # further subfolder for different task
 
-            intermediate_data_folder = intermediate_data_path
-            
-            # set the batch for validation and train
-            mini_batch_folder = intermediate_data_folder
             graph_model, validation_accuracy, validation_f1, time_total_train, time_data_load = \
-                execute_one_validation(mini_batch_folder, img_path, repeate_time = 7, input_layer = GCN_layer, epoch_num = 400, 
+                execute_one_validation(intermediate_data_path, img_path, repeate_time = 7, input_layer = GCN_layer, epoch_num = 400, 
                                             dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
                                              valid_part_num = valid_part_num)
             
@@ -222,36 +213,34 @@ def step4_run_validation_batch(image_data_path, intermediate_data_path, partitio
 
 
 if __name__ == '__main__':
-    # from torch_geometric.datasets import Reddit
-    # local_data_root = '~/GCN/Datasets/'
-    # test_folder_name = 'train_10%_full_neigh/'
-    
     # data_name = 'Reddit'
-    # dataset = Reddit(root = local_data_root + '/' + data_name)
-    # data = dataset[0]
+    # test_folder_name = 'train_10%_full_neigh/'
     # image_data_path = './results/' + data_name + '/' + test_folder_name
-    # # set the current folder as the intermediate data folder so that we can easily copy either clustering 
     # intermediate_data_folder = './'
     # partition_nums = [32]
     # layers = [[]]
 
+    # from torch_geometric.datasets import Reddit
+    # local_data_root = '~/GCN/Datasets/'
+    # dataset = Reddit(root = local_data_root + '/' + data_name)
+    # data = dataset[0]
+
+
     # pc version test on Cora
-    from torch_geometric.datasets import Planetoid
-    local_data_root = '/media/xiangli/storage1/projects/tmpdata/'
-    test_folder_name = 'flat_memory_save_hpc/train_10%_full_neigh/'
-
     data_name = 'Cora'
-    dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
-    data = dataset[0]
+    test_folder_name = 'flat_memory_save_hpc/train_10%_full_neigh/'
     image_data_path = './results/' + data_name + '/' + test_folder_name
-    # set the current folder as the intermediate data folder so that we can easily copy either clustering 
     intermediate_data_folder = './'
-
     partition_nums = [2]
     layers = [[32]]
 
+    from torch_geometric.datasets import Planetoid
+    local_data_root = '/media/xiangli/storage1/projects/tmpdata/'
+    dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
+    data = dataset[0]
 
-    step0_generate_clustering_machine(data, image_data_path, intermediate_data_folder, partition_nums, layers, valid_part_num = 4)
+
+    step0_generate_clustering_machine(data, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, valid_part_num = 4)
 
     step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5, \
                             batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info.csv')

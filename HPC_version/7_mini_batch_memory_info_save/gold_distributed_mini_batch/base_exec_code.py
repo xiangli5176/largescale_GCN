@@ -23,7 +23,7 @@ from Cluster_Trainer import ClusterGCNTrainer_mini_Train
 
 
 ''' Execute the testing program '''
-def set_clustering_machine(data, image_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = 2, valid_batch_num = 2, test_batch_num = 2):
+def set_clustering_machine(data, dataset, image_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = 2, valid_batch_num = 2, test_batch_num = 2):
     """
         Set the batch machine plus generate the training batches
             1) data: the target dataset data
@@ -42,6 +42,7 @@ def set_clustering_machine(data, image_path, intermediate_data_folder, test_rati
     clustering_file_folder = intermediate_data_folder + 'clustering/'
     check_folder_exist(clustering_file_folder)  # if exist then delete
     clustering_file_name = clustering_file_folder + 'clustering_machine.txt'
+    data_info_file_name = clustering_file_folder + 'data_info_file.txt'
     os.makedirs(os.path.dirname(clustering_file_folder), exist_ok=True)
     
     # if we use the random assignment of the code, then filtering out the isolated data may not be necessary
@@ -74,10 +75,14 @@ def set_clustering_machine(data, image_path, intermediate_data_folder, test_rati
     data_split_time = time.time() - t1
     print('Data splitting costs a total of {0:.4f} seconds!'.format(data_split_time))
     
-#     print('Start to store the batch machine file:')
+    print('Start to store the batch machine file:')
     t3 = time.time()
     with open(clustering_file_name, "wb") as fp:
         pickle.dump(clustering_machine, fp)
+    data_info = (dataset.num_node_features, dataset.num_classes )
+    with open(data_info_file_name, "wb") as fp:
+        pickle.dump(data_info, fp)
+    
     batch_machine_store_time = time.time() - t3
     print('Storing batch machine after training batches generation costs a total of {0:.4f} seconds!'.format(batch_machine_store_time))
     print('\n' + '=' * 100)
@@ -100,16 +105,15 @@ def set_clustering_machine_train_batch(image_path, intermediate_data_folder, nei
     batch_machine_read = time.time() - t0
     print('Batch machine reading costs a total of {0:.4f} seconds!'.format(batch_machine_read))
     
-    mini_batch_folder = intermediate_data_folder
-#     check_folder_exist(mini_batch_folder)  # if exist then delete
+#     check_folder_exist(intermediate_data_folder)  # if exist then delete
     print('Start to generate the training batches:')
     os.makedirs(os.path.dirname(info_folder), exist_ok=True)
     t2 = time.time()
-    clustering_machine.mini_batch_train_clustering(mini_batch_folder, neigh_layer, fraction = train_frac, \
+    clustering_machine.mini_batch_train_clustering(intermediate_data_folder, neigh_layer, fraction = train_frac, \
                                                    batch_range = batch_range, info_folder = info_folder, info_file = info_file)
     train_batch_production_time = time.time() - t2
     print('Train batches production costs a total of {0:.4f} seconds!'.format(train_batch_production_time))
-    print_dir_content_info(mini_batch_folder + 'train/')
+    print_dir_content_info(intermediate_data_folder + 'train/')
     print('=' * 100)
     # output the memory usage information
     output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating train batches: ')
@@ -129,21 +133,20 @@ def set_clustering_machine_validation_batch(image_path, intermediate_data_folder
     batch_machine_read = time.time() - t0
     print('Batch machine reading costs a total of {0:.4f} seconds!'.format(batch_machine_read))
     
-    mini_batch_folder = intermediate_data_folder
     print('Start to generate the validation batches:')
     os.makedirs(os.path.dirname(info_folder), exist_ok=True)
     t1 = time.time()
     # for validation , fraction has to be 1.0 so that to include the information form original graph
-    clustering_machine.mini_batch_validation_clustering(mini_batch_folder, neigh_layer, fraction = validation_frac, \
+    clustering_machine.mini_batch_validation_clustering(intermediate_data_folder, neigh_layer, fraction = validation_frac, \
                                                         batch_range = batch_range, info_folder = info_folder, info_file = info_file)
     validation_batch_production_time = time.time() - t1
     print('Validation batches production costs a total of {0:.4f} seconds!'.format(validation_batch_production_time))
-    print_dir_content_info(mini_batch_folder + 'validation/')
+    print_dir_content_info(intermediate_data_folder + 'validation/')
     print('=' * 100)
     # output the memory usage information
     output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating validation batches: ')
 
-def Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
+def Cluster_train_batch_run(trainer_id, intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
                                  train_part_num = 2, test_part_num = 1):
     """
@@ -151,10 +154,16 @@ def Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, i
     Tuning parameters:  dropout, lr (learning rate), weight_decay: l2 regularization
     return: validation accuracy value, validation F-1 value, time_training (ms), time_data_load (ms)
     """
+    
+    clustering_file_folder = intermediate_data_folder + 'clustering/'
+    data_info_file = clustering_file_folder + 'data_info_file.txt'
+    with open(data_info_file, "rb") as fp:
+        num_node_features, num_classes = pickle.load(fp)
+    
     print('\n' + '=' * 100)
     print('Start generate the trainer:')
     t0 = time.time()
-    gcn_trainer = ClusterGCNTrainer_mini_Train(mini_batch_folder, dataset.num_node_features, dataset.num_classes, input_layers = input_layer, dropout = dropout)
+    gcn_trainer = ClusterGCNTrainer_mini_Train(intermediate_data_folder, num_node_features, num_classes, input_layers = input_layer, dropout = dropout)
     train_create = time.time() - t0
     print('Trainer creation costs a total of {0:.4f} seconds!'.format(train_create))
     
@@ -165,7 +174,7 @@ def Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, i
     print('Training costs a total of {0:.4f} seconds!'.format(train_period))
     
     print('Start to save the GCN trainer model (parameters: weights, bias):')
-    trainer_file_name = mini_batch_folder + 'GCNtrainer/GCN_trainer_' + str(trainer_id)
+    trainer_file_name = intermediate_data_folder + 'GCNtrainer/GCN_trainer_' + str(trainer_id)
     t2 = time.time()
     with open(trainer_file_name, "wb") as fp:
         pickle.dump(gcn_trainer, fp)
@@ -174,11 +183,11 @@ def Cluster_train_batch_run(trainer_id, mini_batch_folder, data_name, dataset, i
     print('-' * 80)
     output_GPU_memory_usage('Memory_use_batch_train.txt', './info_GPU_memory/', comment ='after generating trainer and train minibatches: ')
 
-def Cluster_valid_batch_run(trainer_id, mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
+def Cluster_valid_batch_run(trainer_id, intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
                                  valid_part_num = 2):
     print('Start to read the GCN trainer model (parameters: weights, bias):')
-    trainer_file_name = mini_batch_folder + 'GCNtrainer/GCN_trainer_' + str(trainer_id)
+    trainer_file_name = intermediate_data_folder + 'GCNtrainer/GCN_trainer_' + str(trainer_id)
     t1 = time.time()
     with open(trainer_file_name, "rb") as fp:
         gcn_trainer = pickle.load(fp)
@@ -199,17 +208,22 @@ def Cluster_valid_batch_run(trainer_id, mini_batch_folder, data_name, dataset, i
     return validation_accuracy, validation_F1, time_train_total, time_data_load
 
 
-def Cluster_train_valid_batch_investigate(mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
+def Cluster_train_valid_batch_investigate(intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, output_period = 10, 
                                          valid_part_num = 2, train_part_num = 2, test_part_num = 1):
     """
         *** dynamically investigate the F1 score in the middle of the training after certain period ***
         output: two dict containing F1-score and accuracy of a certain epoch index
     """
+    clustering_file_folder = intermediate_data_folder + 'clustering/'
+    data_info_file = clustering_file_folder + 'data_info_file.txt'
+    with open(data_info_file, "rb") as fp:
+        num_node_features, num_classes = pickle.load(fp)
+    
     print('\n' + '=' * 100)
     print('Start generate the trainer:')
     t0 = time.time()
-    gcn_trainer = ClusterGCNTrainer_mini_Train(mini_batch_folder, dataset.num_node_features, dataset.num_classes, input_layers = input_layer, dropout = dropout)
+    gcn_trainer = ClusterGCNTrainer_mini_Train(intermediate_data_folder, num_node_features, num_classes, input_layers = input_layer, dropout = dropout)
     train_create = time.time() - t0
     print('Trainer creation costs a total of {0:.4f} seconds!'.format(train_create))
     
@@ -225,7 +239,7 @@ def Cluster_train_valid_batch_investigate(mini_batch_folder, data_name, dataset,
     return Train_period_F1, Train_period_accuracy
 
 # for the purpose for tuning 
-def Cluster_train_valid_batch_run(mini_batch_folder, data_name, dataset, image_path, input_layer = [16, 16], epochs=300, \
+def Cluster_train_valid_batch_run(intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
                                  valid_part_num = 2, train_part_num = 2, test_part_num = 1):
     """
@@ -233,10 +247,15 @@ def Cluster_train_valid_batch_run(mini_batch_folder, data_name, dataset, image_p
     Tuning parameters:  dropout, lr (learning rate), weight_decay: l2 regularization
     return: validation accuracy value, validation F-1 value, time_training (ms), time_data_load (ms)
     """
+    clustering_file_folder = intermediate_data_folder + 'clustering/'
+    data_info_file = clustering_file_folder + 'data_info_file.txt'
+    with open(data_info_file, "rb") as fp:
+        num_node_features, num_classes = pickle.load(fp)
+    
     print('\n' + '=' * 100)
     print('Start generate the trainer:')
     t0 = time.time()
-    gcn_trainer = ClusterGCNTrainer_mini_Train(mini_batch_folder, dataset.num_node_features, dataset.num_classes, input_layers = input_layer, dropout = dropout)
+    gcn_trainer = ClusterGCNTrainer_mini_Train(intermediate_data_folder, num_node_features, num_classes, input_layers = input_layer, dropout = dropout)
     train_create = time.time() - t0
     print('Trainer creation costs a total of {0:.4f} seconds!'.format(train_create))
     
