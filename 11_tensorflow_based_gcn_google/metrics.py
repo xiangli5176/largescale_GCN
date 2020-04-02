@@ -39,7 +39,13 @@ def masked_sigmoid_cross_entropy(preds, labels, mask):
 
 def masked_accuracy(preds, labels, mask):
   """Accuracy with masking."""
-  correct_prediction = tf.equal(tf.argmax(preds, 1), tf.argmax(labels, 1))
+  correct_prediction = tf.equal(tf.argmax(preds, 1), tf.argmax(labels, 1))   # A tf.Tensor of type bool with the same size as that of x or y.
+
+  # print('inside the masked acc multilabel func: ')
+  # print('prediction labels: ', preds.shape, '\n', preds[:8])
+  # print('realistic labels: ', labels.shape, '\n', labels[:8])
+  # print('boolean comparison tensor: ', correct_prediction.shape, correct_prediction[:8])
+
   accuracy_all = tf.cast(correct_prediction, tf.float32)
   mask = tf.cast(mask, dtype=tf.float32)
   mask /= tf.reduce_mean(mask)
@@ -52,6 +58,12 @@ def masked_accuracy_multilabel(preds, labels, mask):
   preds = preds > 0
   labels = labels > 0.5
   correct_prediction = tf.equal(preds, labels)
+
+  # print('inside the masked acc multilabel func: ')
+  # print('prediction labels: ', preds.shape, '\n', preds[:8])
+  # print('realistic labels: ', labels.shape, '\n', labels[:8])
+  # print('boolean comparison tensor: ', correct_prediction.shape, correct_prediction[:8])
+
   accuracy_all = tf.cast(correct_prediction, tf.float32)
   mask = tf.cast(mask, dtype=tf.float32)
   mask /= tf.reduce_mean(mask)

@@ -98,15 +98,21 @@ def sparse_to_tuple(sparse_mx):
 
 
 def calc_f1(y_pred, y_true, multilabel):
+  """ For the multi-label: still use the 1-hot 
+      y_pred and y_true are already masked here
+  """
   if multilabel:
     y_pred[y_pred > 0] = 1
     y_pred[y_pred <= 0] = 0
   else:
     y_true = np.argmax(y_true, axis=1)
     y_pred = np.argmax(y_pred, axis=1)
-  return sklearn.metrics.f1_score(
-      y_true, y_pred, average='micro'), sklearn.metrics.f1_score(
-          y_true, y_pred, average='macro')
+
+  # print('insdie the utils.calc_f1 func: ')
+  # print('test prediciton labels: ', y_pred.shape, '\n', y_pred[:8])
+  # print('\ntest realistic labels: ', y_true.shape, '\n', y_true[:8])
+
+  return sklearn.metrics.f1_score(y_true, y_pred, average='micro'), sklearn.metrics.f1_score(y_true, y_pred, average='macro'), sklearn.metrics.accuracy_score(y_true, y_pred, normalize=True)
 
 
 def construct_feed_dict(features, support, labels, labels_mask, placeholders):
