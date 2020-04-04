@@ -14,7 +14,6 @@ from Custom_GCNConv import Net
 #####################################
 
 
-
 class ClusterGCNTrainer_mini_Train(object):
     """
     Training a ClusterGCN.
@@ -203,10 +202,42 @@ class ClusterGCNTrainer_mini_Train(object):
         self.time_train_total = ((time.time() - t0) * 1000)
 
 
+    def whole_cpu_validate(self):
+        """
+        Scoring the test and printing the F-1 score.
+        """
+        self.test_device = torch.device("cpu")
+        test_model = self.model.to(self.test_device)
+        test_model.eval()   # set into test mode, only effective for certain modules such as dropout and batchNorm
+        
+        batch_file_name = self.data_folder + 'validation/batch_whole'
+
+        t2 = time.time()
+        with open(batch_file_name, "rb") as fp:
+            minibatch_data_validation = pickle.load(fp)
+        read_time = (time.time() - t2) * 1000
+        print('*** During validation for # {0} batch, reading batch file costed {1:.2f} ms ***'.format("whole graph", read_time) )
+
+        valid_validation_nodes, valid_edges, valid_edge_weights, valid_features, valid_target = minibatch_data_validation
+
+        prediction = test_model(valid_edges, valid_features, valid_edge_weights)
+        # select the testing nodes predictions and real labels
+        predictions = prediction[valid_validation_nodes].cpu().detach().numpy()
+        targets = valid_target[valid_validation_nodes].cpu().detach().numpy()
+        
+        # along axis:    axis == 1
+        predictions = predictions.argmax(1)  # return the indices of maximum probability 
+        
+        f1 = f1_score(targets, predictions, average="micro")
+        accuracy = accuracy_score(targets, predictions)
+#         print("\nTest F-1 score: {:.4f}".format(score))
+        return (f1, accuracy)
+
     def batch_validate(self, valid_batch_num = 2):
         """
         Scoring the test and printing the F-1 score.
         """
+        self.test_device = torch.device("cpu")
         test_model = self.model.to(self.test_device)
         test_model.eval()   # set into test mode, only effective for certain modules such as dropout and batchNorm
         

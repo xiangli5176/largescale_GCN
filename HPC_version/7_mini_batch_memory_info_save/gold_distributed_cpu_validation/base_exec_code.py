@@ -22,8 +22,7 @@ from Cluster_Machine import ClusteringMachine
 from Cluster_Trainer import ClusterGCNTrainer_mini_Train
 
 
-''' Execute the testing program '''
-def set_clustering_machine(data, dataset, image_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = 2, valid_batch_num = 2, test_batch_num = 2):
+def set_clustering_machine(data, dataset, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = 2):
     """
         Set the batch machine plus generate the training batches
             1) data: the target dataset data
@@ -71,7 +70,7 @@ def set_clustering_machine(data, dataset, image_path, intermediate_data_folder, 
     print('Start to split data into train, test, validation:')
     t1 = time.time()
     clustering_machine.split_whole_nodes_edges_then_cluster(test_ratio, validation_ratio, \
-                                    train_batch_num = train_batch_num, valid_batch_num = valid_batch_num, test_batch_num = test_batch_num)
+                                    train_batch_num = train_batch_num)
     data_split_time = time.time() - t1
     print('Data splitting costs a total of {0:.4f} seconds!'.format(data_split_time))
     
@@ -90,7 +89,7 @@ def set_clustering_machine(data, dataset, image_path, intermediate_data_folder, 
     output_GPU_memory_usage('Memory_use_setting_cluster.txt', './info_GPU_memory/', comment ='after setting clustering machine: ')
     
     
-def set_clustering_machine_train_batch(image_path, intermediate_data_folder, neigh_layer = 1, train_frac = 1.0, \
+def set_clustering_machine_train_batch(intermediate_data_folder, neigh_layer = 1, train_frac = 1.0, \
                                        batch_range = (0, 1), info_folder = './info_train_batch/', info_file = 'train_batch_size_info.csv'):
     """
         Generate the train batches
@@ -117,9 +116,9 @@ def set_clustering_machine_train_batch(image_path, intermediate_data_folder, nei
     print('=' * 100)
     # output the memory usage information
     output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating train batches: ')
-
-def set_clustering_machine_validation_batch(image_path, intermediate_data_folder, neigh_layer = 1, validation_frac = 1.0, \
-                                            batch_range = (0, 1), info_folder = './info_validation_batch/', info_file = 'validation_batch_size_info.csv'):
+    
+def set_clustering_machine_validation_whole_graph(intermediate_data_folder, \
+                                                  info_folder = './info_validation_whole_graph/', info_file = 'validation_whole_graph_size_info.csv'):
     """
         Generate the validation batches
     """
@@ -133,20 +132,20 @@ def set_clustering_machine_validation_batch(image_path, intermediate_data_folder
     batch_machine_read = time.time() - t0
     print('Batch machine reading costs a total of {0:.4f} seconds!'.format(batch_machine_read))
     
-    print('Start to generate the validation batches:')
+    print('Start to generate the validation whole graph:')
     os.makedirs(os.path.dirname(info_folder), exist_ok=True)
     t1 = time.time()
-    # for validation , fraction has to be 1.0 so that to include the information form original graph
-    clustering_machine.mini_batch_validation_clustering(intermediate_data_folder, neigh_layer, fraction = validation_frac, \
-                                                        batch_range = batch_range, info_folder = info_folder, info_file = info_file)
+    # create the validation batch for the whole graph
+    clustering_machine.whole_validation_clustering(intermediate_data_folder, info_folder = info_folder)
+    
     validation_batch_production_time = time.time() - t1
     print('Validation batches production costs a total of {0:.4f} seconds!'.format(validation_batch_production_time))
     print_dir_content_info(intermediate_data_folder + 'validation/')
     print('=' * 100)
     # output the memory usage information
-    output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating validation batches: ')
+    output_GPU_memory_usage(info_file, './info_GPU_memory/', comment ='after generating validation for whole graph: ')
 
-def Cluster_train_batch_run(trainer_id, intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
+def Cluster_train_batch_run(trainer_id, intermediate_data_folder, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
                                  train_part_num = 2, test_part_num = 1):
     """
@@ -178,14 +177,13 @@ def Cluster_train_batch_run(trainer_id, intermediate_data_folder, image_path, in
     t2 = time.time()
     with open(trainer_file_name, "wb") as fp:
         pickle.dump(gcn_trainer, fp)
+        
     store_trainer = time.time() - t2
     print('Storing the trainer costs a total of {0:.4f} seconds!'.format(store_trainer))
     print('-' * 80)
     output_GPU_memory_usage('Memory_use_batch_train.txt', './info_GPU_memory/', comment ='after generating trainer and train minibatches: ')
 
-def Cluster_valid_batch_run(trainer_id, intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
-                           dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
-                                 valid_part_num = 2):
+def Cluster_valid_batch_run(trainer_id, intermediate_data_folder):
     print('Start to read the GCN trainer model (parameters: weights, bias):')
     trainer_file_name = intermediate_data_folder + 'GCNtrainer/GCN_trainer_' + str(trainer_id)
     t1 = time.time()
@@ -196,7 +194,8 @@ def Cluster_valid_batch_run(trainer_id, intermediate_data_folder, image_path, in
     
     print('Start validate the model:')
     t2 = time.time()
-    validation_F1, validation_accuracy = gcn_trainer.batch_validate(valid_batch_num = valid_part_num)
+#     validation_F1, validation_accuracy = gcn_trainer.batch_validate(valid_batch_num = valid_part_num)
+    validation_F1, validation_accuracy = gcn_trainer.whole_cpu_validate()
     validation_period = time.time() - t2
     print('Validatoin costs a total of {0:.4f} seconds!'.format(validation_period))
     print('=' * 100)
@@ -208,40 +207,9 @@ def Cluster_valid_batch_run(trainer_id, intermediate_data_folder, image_path, in
     return validation_accuracy, validation_F1, time_train_total, time_data_load
 
 
-def Cluster_train_valid_batch_investigate(intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
-                           dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, output_period = 10, 
-                                         valid_part_num = 2, train_part_num = 2, test_part_num = 1):
-    """
-        *** dynamically investigate the F1 score in the middle of the training after certain period ***
-        output: two dict containing F1-score and accuracy of a certain epoch index
-    """
-    clustering_file_folder = intermediate_data_folder + 'clustering/'
-    data_info_file = clustering_file_folder + 'data_info_file.txt'
-    with open(data_info_file, "rb") as fp:
-        num_node_features, num_classes = pickle.load(fp)
-    
-    print('\n' + '=' * 100)
-    print('Start generate the trainer:')
-    t0 = time.time()
-    gcn_trainer = ClusterGCNTrainer_mini_Train(intermediate_data_folder, num_node_features, num_classes, input_layers = input_layer, dropout = dropout)
-    train_create = time.time() - t0
-    print('Trainer creation costs a total of {0:.4f} seconds!'.format(train_create))
-    
-    print('Start train the model:')
-    t1 = time.time()
-    Train_period_F1, Train_period_accuracy = gcn_trainer.train_investigate_F1(epoch_num=epochs, learning_rate=lr, weight_decay=weight_decay, mini_epoch_num = mini_epoch_num, \
-                                                            output_period = output_period, train_batch_num = train_part_num, valid_batch_num = valid_part_num)
-    train_period = time.time() - t1
-    print('In-process Training costs a total of {0:.4f} seconds!'.format(train_period))
-    print('=' * 100)
-    
-    output_GPU_memory_usage('Memory_use_investigate_batch_train_valid.txt', './info_GPU_memory/', comment ='after train_validation investigate batches  minibatches: ')
-    return Train_period_F1, Train_period_accuracy
-
-# for the purpose for tuning 
-def Cluster_train_valid_batch_run(intermediate_data_folder, image_path, input_layer = [16, 16], epochs=300, \
+def Cluster_tune_train_run(intermediate_data_folder, input_layer = [16, 16], epochs=300, \
                            dropout = 0.3, lr = 0.01, weight_decay = 0.01, mini_epoch_num = 5, \
-                                 valid_part_num = 2, train_part_num = 2, test_part_num = 1):
+                                 train_part_num = 2):
     """
     # Run the mini-batch model (train and validate both in batches)
     Tuning parameters:  dropout, lr (learning rate), weight_decay: l2 regularization
@@ -266,9 +234,16 @@ def Cluster_train_valid_batch_run(intermediate_data_folder, image_path, input_la
     print('Training costs a total of {0:.4f} seconds!'.format(train_period))
     print('-' * 80)
     
+    return gcn_trainer
+    
+    
+def Cluster_tune_validation_run(gcn_trainer, valid_part_num = 2):
+    
     print('Start validate the model:')
     t2 = time.time()
-    validation_F1, validation_accuracy = gcn_trainer.batch_validate(valid_batch_num = valid_part_num)
+#     validation_F1, validation_accuracy = gcn_trainer.batch_validate(valid_batch_num = valid_part_num)
+    validation_F1, validation_accuracy = gcn_trainer.whole_cpu_validate()
+    
     validation_period = time.time() - t2
     print('Validatoin costs a total of {0:.4f} seconds!'.format(validation_period))
     print('=' * 100)
@@ -277,24 +252,3 @@ def Cluster_train_valid_batch_run(intermediate_data_folder, image_path, input_la
     
     output_GPU_memory_usage('Memory_use_train_validation_together.txt', './info_GPU_memory/', comment ='after train_validation batches  minibatches together: ')
     return validation_accuracy, validation_F1, time_train_total, time_data_load
-
-
-
-if __name__ == '__main__':
-
-
-    # pc version test on Cora
-    from torch_geometric.datasets import Planetoid
-    local_data_root = '/media/xiangli/storage1/projects/tmpdata/'
-    test_folder_name = 'train_10%_full_neigh/'
-
-    data_name = 'Cora'
-    dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
-    data = dataset[0]
-    image_data_path = './results/' + data_name + '/' + test_folder_name
-    # set the current folder as the intermediate data folder so that we can easily copy either clustering 
-    intermediate_data_folder = './'
-
-    partition_nums = [2]
-    layers = [[32]]
-

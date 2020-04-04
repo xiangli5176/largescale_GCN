@@ -47,7 +47,7 @@ class ClusteringMachine(object):
         self.label_count = len(np.unique(self.label.numpy()) )
     
     # 2) first assign train, test, validation nodes, split edges; this is based on the assumption that the clustering is no longer that important
-    def split_whole_nodes_edges_then_cluster(self, test_ratio, validation_ratio, train_batch_num = 2, valid_batch_num = 2, test_batch_num = 2):
+    def split_whole_nodes_edges_then_cluster(self, test_ratio, validation_ratio, train_batch_num = 2, test_batch_num = 2):
         """
             Only split nodes
             First create train-test splits, then split train and validation into different batch seeds
@@ -60,7 +60,7 @@ class ClusteringMachine(object):
         relative_test_ratio = (test_ratio) / (1 - validation_ratio)
         
         # first divide the nodes for the whole graph, result will always be a list of lists 
-        model_nodes_global, valid_nodes_global = train_test_split(list(self.graph.nodes()), test_size = validation_ratio)
+        model_nodes_global, self.valid_nodes_global = train_test_split(list(self.graph.nodes()), test_size = validation_ratio)
         train_nodes_global, test_nodes_global = train_test_split(model_nodes_global, test_size = relative_test_ratio)
         
 #         self.sg_train_nodes_global = self.random_clustering(train_nodes_global, train_batch_num)
@@ -68,7 +68,6 @@ class ClusteringMachine(object):
 #         self.sg_test_nodes_global = self.random_clustering(test_nodes_global, test_batch_num)
 
         self.sg_train_nodes_global = self.metis_clustering(train_nodes_global, train_batch_num)
-        self.sg_validation_nodes_global = self.metis_clustering(valid_nodes_global, valid_batch_num)
         self.sg_test_nodes_global = self.metis_clustering(test_nodes_global, test_batch_num)
         
     # just allocate each node to arandom cluster, store the membership inside each dict
@@ -136,7 +135,50 @@ class ClusteringMachine(object):
             # the most outside layer: kth layer will be added:
             accum_neighbor[cluster] |= neighbor
         return accum_neighbor
+    
+    # for use of validation on the whole graph as a whole in CPU-side memory
+    def whole_batch_generate(self, batch_file_folder, test_nodes):
+        """
+            For use of testing the model: generate the needed tensors for testing in CPU-memory side
+        """
+        # store the global edges
+        whole_nodes_global = sorted(self.graph.nodes())
+        whole_edges_global = {edge for edge in self.graph.edges()}
         
+        whole_edge_weight_local = \
+                        [ self.graph.edges[left, right]['weight'] for left, right in whole_edges_global ] + \
+                        [ self.graph.edges[right, left]['weight'] for left, right in whole_edges_global ] + \
+                        [ self.graph.edges[i, i]['weight'] for i in whole_nodes_global ]
+        
+        whole_edges_local = \
+                       [ [ left, right ] for left, right in whole_edges_global ] + \
+                       [ [ right, left ] for left, right in whole_edges_global ] + \
+                       [ [i, i] for i in whole_nodes_global ]  
+        
+        # store local features and lables
+        whole_features_local = self.features
+        whole_labels_local = self.label
+
+        # transform all the data to the tensor form
+        whole_edges_local = torch.LongTensor(whole_edges_local).t()
+        whole_edge_weight_local = torch.FloatTensor(whole_edge_weight_local)
+        whole_features_local = torch.FloatTensor(whole_features_local)
+        whole_labels_local = torch.LongTensor(whole_labels_local)
+        whole_test_nodes_local = torch.LongTensor( sorted(test_nodes) )
+
+        whole_batch_data = [whole_test_nodes_local, whole_edges_local, whole_edge_weight_local, whole_features_local, whole_labels_local]
+
+        batch_file_name = batch_file_folder + 'batch_whole'
+
+        # store the batch files
+        t0 = time.time()
+        with open(batch_file_name, "wb") as fp:
+            pickle.dump(whole_batch_data, fp)
+        store_time = ((time.time() - t0) * 1000)
+        print('*** Generate batch file for # {0} batch, writing the batch file costed {1:.2f} ms ***'.format("whole graph", store_time) )
+    
+    
+    # main logic for generating overlapping batches from train nodes
     def mini_batch_generate(self, batch_file_folder, target_seed, k, fraction = 1.0, batch_range = (0, 1)):
         """
             create the mini-batch focused on the train nodes only, include a total of k layers of neighbors of the original training nodes
@@ -253,18 +295,14 @@ class ClusteringMachine(object):
         self.save_info_dict(self.info_train_batch_edge_size, info_file, info_folder, header = 'train_batch_edge_id, train_batch_edge_size')
         self.save_info_dict(self.info_train_seed_size, info_file, info_folder, header = 'train_seed_node_id, train_seed_node_size')
         
-    def mini_batch_validation_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1), info_folder = './info/', info_file = 'validation_batch_size_info.csv'):
+    def whole_validation_clustering(self, batch_folder, info_folder = './info/', info_file = 'validation_whole_size_info.csv'):
         data_type = 'validation'
         batch_file_folder = batch_folder + data_type + '/'
 #         check_folder_exist(batch_file_folder)
         os.makedirs(os.path.dirname(batch_file_folder), exist_ok=True)
         
-        self.info_validation_batch_node_size, self.info_validation_batch_edge_size = self.mini_batch_generate(batch_file_folder, self.sg_validation_nodes_global, k, fraction = fraction, batch_range = batch_range)
-        self.info_validation_seed_size = {key : len(val) for key, val in self.sg_validation_nodes_global.items()}
+        self.whole_batch_generate(batch_file_folder, self.valid_nodes_global)
         
-        self.save_info_dict(self.info_validation_batch_node_size, info_file, info_folder, header = 'validation_batch_node_id, validation_batch_node_size')
-        self.save_info_dict(self.info_validation_batch_edge_size, info_file, info_folder, header = 'validation_batch_edge_id, validation_batch_edge_size')
-        self.save_info_dict(self.info_validation_seed_size, info_file, info_folder, header = 'validation_seed_node_id, validation_seed_node_size')
         
     def mini_batch_test_clustering(self, batch_folder, k, fraction = 1.0, batch_range = (0, 1), info_folder = './info/', info_file = 'test_batch_size_info.csv'):
         data_type = 'test'

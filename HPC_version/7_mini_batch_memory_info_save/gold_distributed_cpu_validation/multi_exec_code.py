@@ -23,67 +23,11 @@ from Cluster_Trainer import ClusterGCNTrainer_mini_Train
 
 from base_exec_code import *
 
-def execute_one_train(mini_batch_folder, image_path, repeate_time = 5, input_layer = [32], epoch_num = 300, \
-                dropout = 0.3, lr = 0.0001, weight_decay = 0.01, mini_epoch_num = 5, \
-                train_part_num = 2, test_part_num = 1):
-    """
-        Perform one train and store the results for all trainer
-    """
-    Trainer_folder = mini_batch_folder + 'GCNtrainer/'
-    check_folder_exist(Trainer_folder)
-    os.makedirs(os.path.dirname(Trainer_folder), exist_ok=True)
-#     graph_model = ['batch_valid', 'train_batch', 'whole_graph', 'isolate']
-    for trainer_id in range(repeate_time):
-        model_res = []
-        
-        Cluster_train_batch_run(trainer_id, mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
-                                                         dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
-                                                         train_part_num = train_part_num, test_part_num = test_part_num)
-        
-def execute_one_validation(mini_batch_folder, image_path, repeate_time = 5, input_layer = [32], epoch_num = 300, \
-                dropout = 0.3, lr = 0.0001, weight_decay = 0.01, mini_epoch_num = 5, \
-                valid_part_num = 2):
-    """
-        return all test-F1 and validation-F1 for all four models
-    """
-    validation_accuracy = {}
-    validation_f1 = {}
-    time_total_train = {}
-    time_data_load = {}
-    
-    # Each graph model corresponds to one function below
-#     graph_model = ['batch_valid', 'train_batch', 'whole_graph', 'isolate']
-    graph_model = ['batch_valid']
-    for trainer_id in range(repeate_time):
-        model_res = []
-        model_res.append(Cluster_valid_batch_run(trainer_id, mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
-                                                         dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
-                                                      valid_part_num = valid_part_num)[:4])
-        
-        validation_accuracy[trainer_id], validation_f1[trainer_id], time_total_train[trainer_id], time_data_load[trainer_id] = zip(*model_res)
-    return graph_model, validation_accuracy, validation_f1, time_total_train, time_data_load
 
-
-def execute_investigate(mini_batch_folder, image_path, repeate_time = 5, input_layer = [32], epoch_num = 300, \
-                        dropout = 0.3, lr = 0.0001, weight_decay = 0.01, mini_epoch_num = 5, output_period = 10, \
-                         valid_part_num = 2, train_part_num = 2, test_part_num = 1):
-    """
-        return all test-F1 and validation-F1 for all four models
-    """
-    Train_peroid_f1 = {}
-    Train_peroid_accuracy = {}
-    
-    for i in range(repeate_time):
-        Train_peroid_f1[i], Train_peroid_accuracy[i] = Cluster_train_valid_batch_investigate(mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
-                                            dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, output_period = output_period, \
-                                                                    valid_part_num = valid_part_num, train_part_num = train_part_num, test_part_num = test_part_num)
-        
-    return Train_peroid_f1, Train_peroid_accuracy
-
-"""To test one single model for different parameter values"""
-def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7, input_layer = [32], epoch_num = 400, \
+#  To test one single model for different parameter values 
+def execute_tuning_train(mini_batch_folder, tune_param_name, tune_val, trainer_id = 0, input_layer = [32], epoch_num = 400, \
                   dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, \
-                  valid_part_num = 2, train_part_num = 2, test_part_num = 1):
+                  train_part_num = 2):
     """
         Tune all the hyperparameters
         1) learning rate
@@ -91,14 +35,55 @@ def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7,
         3) layer unit number
         4) weight decay
     """
+    Trainer_folder = mini_batch_folder + 'GCN_tuning/tune_' + tune_param_name + '_' + str(tune_val) + '/'
+#     check_folder_exist(Trainer_folder)
+    os.makedirs(os.path.dirname(Trainer_folder), exist_ok=True)
+    
+    trainer_file_name = Trainer_folder + 'GCN_trainer_' + str(trainer_id)
+    
+    gcn_trainer = Cluster_tune_train_run(mini_batch_folder, input_layer = input_layer, epochs=epoch_num, \
+                    dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = tune_val, \
+                    train_part_num = train_part_num)
+    with open(trainer_file_name, "wb") as fp:
+        pickle.dump(gcn_trainer, fp)
+    
+# this tuning validation requires the image_path to store all the results as the picle file
+def execute_tuning_validation(image_path, mini_batch_folder, tune_param_name, tune_val, trainer_id = 0, valid_part_num = 2):
+    Trainer_folder = mini_batch_folder + 'GCN_tuning/tune_' + tune_param_name + '_' + str(tune_val) + '/'
+    trainer_file_name = Trainer_folder + 'GCN_trainer_' + str(trainer_id)
+    
+    print('Start to read the GCN trainer model (parameters: weights, bias):')
+    t1 = time.time()
+    with open(trainer_file_name, "rb") as fp:
+        gcn_trainer = pickle.load(fp)
+    read_trainer = (time.time() - t1) * 1000
+    print('Reading the trainer costs a total of {0:.4f} seconds!'.format(read_trainer))
+    # res are: validation_accuracy, validation_F1, time_train_total, time_data_load
+    res = Cluster_tune_validation_run(gcn_trainer, valid_part_num = valid_part_num)
+    
+    # store the resulting data on the disk
+    test_res_folder = image_path + 'test_res/tune_' + tune_param_name + '_' + str(tune_val) + '/'
+    os.makedirs(os.path.dirname(test_res_folder), exist_ok=True)
+    test_res_file = test_res_folder + 'res_trainer_' + str(trainer_id)
+    
+    with open(test_res_file, "wb") as fp:
+        pickle.dump(res, fp)
+    
+def summarize_tuning_res(image_path, mini_batch_folder, tune_param_name, tune_val_list, trainer_list):
     validation_accuracy = {}
     validation_f1 = {}
     time_total_train = {}
     time_data_load = {}
     
-    res = [{tune_val : Cluster_train_valid_batch_run(mini_batch_folder, image_path, input_layer = input_layer, epochs=epoch_num, \
-            dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = tune_val, \
-            valid_part_num = valid_part_num, train_part_num = train_part_num, test_part_num = test_part_num) for tune_val in tune_params} for i in range(repeate_time)]
+    res = []
+    for trainer_id in trainer_list:
+        ref = {}
+        for tune_val in tune_val_list:
+            test_res_folder = image_path + 'test_res/tune_' + tune_param_name + '_' + str(tune_val) + '/'
+            test_res_file = test_res_folder + 'res_trainer_' + str(trainer_id)
+            with open(test_res_file, "rb") as fp:
+                ref[tune_val] = pickle.load(fp)
+        res.append(ref)
     
     for i, ref in enumerate(res):
         validation_accuracy[i] = {tune_val : res_lst[0] for tune_val, res_lst in ref.items()}
@@ -109,107 +94,71 @@ def execute_tuning(tune_params, mini_batch_folder, image_path, repeate_time = 7,
     return validation_accuracy, validation_f1, time_total_train, time_data_load
 
 
+def step0_generate_clustering_machine(data, dataset, intermediate_data_path, train_batch_num, hop_layer):            
+        print('Start running for train batch num: ' + str(train_batch_num) + ' hop layer ' + str(hop_layer))
 
-def step0_generate_clustering_machine(data, dataset, image_data_path, intermediate_data_path, partition_nums, layers, valid_part_num = 2):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
+        # set the basic settings for the future batches generation
+        set_clustering_machine(data, dataset, intermediate_data_path, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = train_batch_num)
 
-            intermediate_data_folder = intermediate_data_path
-            
-            # set the batch for train
-            set_clustering_machine(data, dataset, img_path, intermediate_data_folder, test_ratio = 0.05, validation_ratio = 0.85, train_batch_num = partn, valid_batch_num = valid_part_num, test_batch_num = 2)
-
-def step1_generate_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, train_frac = 1.0, \
+def step1_generate_train_batch(intermediate_data_path, train_batch_num, hop_layer, train_frac = 1.0, \
                                batch_range = (0, 1), info_folder = './info/', info_file = 'train_batch_size_info.csv'):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
+        # set the save path
+        print('Start running for train batch num: ' + str(train_batch_num) + ' hop layer ' + str(hop_layer))
 
-            intermediate_data_folder = intermediate_data_path
-            
-            # set the batch for train
-            set_clustering_machine_train_batch(img_path, intermediate_data_folder, neigh_layer = hop_layer, train_frac = train_frac, \
-                                               batch_range = batch_range, info_folder = info_folder, info_file = info_file)
+        # generate the train batches
+        set_clustering_machine_train_batch(intermediate_data_path, neigh_layer = hop_layer, train_frac = train_frac, \
+                                           batch_range = batch_range, info_folder = info_folder, info_file = info_file)
 
+def step2_generate_validation_whole_graph(intermediate_data_path, info_folder = './info/', info_file = 'validation_whole_graph_size_info.csv'):            
+
+        # generate all the tensors from the  whole graph for validation
+        set_clustering_machine_validation_whole_graph(intermediate_data_path, info_folder = info_folder, info_file = info_file)
+
+
+def step30_run_tune_train_batch(intermediate_data_path, tune_param_name, tune_val, train_batch_num, hop_layer_num, GCN_layer, \
+                    trainer_id = 0, dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, epoch_num = 400):            
+        print('Start running training for partition num: ' + str(train_batch_num) + ' hop layer ' + str(hop_layer_num))
+        # start to tune the model, run different training 
+        execute_tuning_train(intermediate_data_path, tune_param_name, tune_val, trainer_id = trainer_id, input_layer = GCN_layer, epoch_num = epoch_num, \
+                                        dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
+                                      train_part_num = train_batch_num)
+            
+def step40_run_tune_validation_whole(image_data_path, intermediate_data_path, tune_param_name, tune_val, train_batch_num, hop_layer_num, net_layer_num, \
+                    trainer_id = 0): 
+        # set the save path
+        print('Start running training for partition num: ' + str(train_batch_num) + ' hop layer ' + str(hop_layer_num))
+        img_path = image_data_path + 'cluster_num_' + str(train_batch_num) + '/' + 'net_layer_num_' + str(net_layer_num) + '_hop_layer_num_' + str(hop_layer_num) + '/'
+        img_path += 'tuning_parameters/'  # further subfolder for different task
+        
+        # start to validate the model, with different tuning parameters
+        execute_tuning_validation(img_path, intermediate_data_path, tune_param_name, tune_val, trainer_id = trainer_id)
+
+            
+def step50_run_tune_summarize_whole(data_name, image_data_path, intermediate_data_path, tune_param_name, tune_val_list, \
+                                    train_batch_num, hop_layer_num, net_layer_num, trainer_list): 
     
-def step2_generate_validation_batch(image_data_path, intermediate_data_path, partition_nums, layers, validation_frac = 1.0, \
-                                    batch_range = (0, 1), info_folder = './info/', info_file = 'validation_batch_size_info.csv'):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
+        print('Start running training for partition num: ' + str(train_batch_num) + ' hop layer ' + str(hop_layer_num))
+        # set the batch for validation and train
+        img_path = image_data_path + 'cluster_num_' + str(train_batch_num) + '/' + 'net_layer_num_' + str(net_layer_num) + '_hop_layer_num_' + str(hop_layer_num) + '/'
+        img_path += 'tuning_parameters/'  # further subfolder for different task
+        
+        # start to summarize the results into images for output
 
-            intermediate_data_folder = intermediate_data_path
-            # set the batch for validation
-            set_clustering_machine_validation_batch(img_path, intermediate_data_folder, neigh_layer = hop_layer, validation_frac = validation_frac, \
-                                                    batch_range = batch_range, info_folder = info_folder, info_file = info_file)
-       
-def step3_run_train_batch(image_data_path, intermediate_data_path, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running training for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
-            # set the batch for validation and train
-            # start to run the model, train and validation 
-            execute_one_train(intermediate_data_path, img_path, repeate_time = 7, input_layer = GCN_layer, epoch_num = 400, 
-                                            dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
-                                             train_part_num = 1, test_part_num = 1)
-            
+        validation_accuracy, validation_f1, time_total_train, time_data_load = summarize_tuning_res(img_path, intermediate_data_path, tune_param_name, tune_val_list, trainer_list)
 
-def step4_run_validation_batch(image_data_path, intermediate_data_path, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, valid_part_num = 2):            
-    for partn in partition_nums:
-        for GCN_layer in layers:
-            net_layer = len(GCN_layer) + 1
-            hop_layer = net_layer - 1
-            
-            # set the save path
-            print('Start running validation for partition num: ' + str(partn) + ' hop layer ' + str(hop_layer))
-            img_path = image_data_path + 'cluster_num_' + str(partn) + '/' + 'net_layer_' + str(net_layer) + '_hop_layer_' + str(hop_layer) + '/'
-            img_path += 'output_f1_score/'  # further subfolder for different task
+        validation_accuracy = store_data_multi_tuning(tune_val_list, validation_accuracy, data_name, img_path, 'accuracy_cluster_num_' + str(train_batch_num) + '_hops_' + str(hop_layer_num))
+        draw_data_multi_tests(validation_accuracy, data_name, 'vali_cluster_num_' + str(train_batch_num) + '_hop_' + str(hop_layer_num), 'epochs_per_batch', 'Accuracy')
 
-            graph_model, validation_accuracy, validation_f1, time_total_train, time_data_load = \
-                execute_one_validation(intermediate_data_path, img_path, repeate_time = 7, input_layer = GCN_layer, epoch_num = 400, 
-                                            dropout = dropout, lr = lr, weight_decay = weight_decay, mini_epoch_num = mini_epoch_num, \
-                                             valid_part_num = valid_part_num)
+        validation_f1 = store_data_multi_tuning(tune_val_list, validation_f1, data_name, img_path, 'validation_cluster_num_' + str(train_batch_num) + '_hops_' + str(hop_layer_num))
+        draw_data_multi_tests(validation_f1, data_name, 'vali_cluster_num_' + str(train_batch_num) + '_hop_' + str(hop_layer_num), 'epochs_per_batch', 'F1 score')
+
+        time_train = store_data_multi_tuning(tune_val_list, time_total_train, data_name, img_path, 'train_time_cluster_num_' + str(train_batch_num) + '_hops_' + str(hop_layer_num))
+        draw_data_multi_tests(time_train, data_name, 'train_time_cluster_num_' + str(train_batch_num) + '_hop_' + str(hop_layer_num), 'epochs_per_batch', 'Train Time (ms)')
+
+        time_load = store_data_multi_tuning(tune_val_list, time_data_load, data_name, img_path, 'load_time_cluster_num_' + str(train_batch_num) + '_hops_' + str(hop_layer_num))
+        draw_data_multi_tests(time_load, data_name, 'load_time_cluster_num_' + str(train_batch_num) + '_hop_' + str(hop_layer_num), 'epochs_per_batch', 'Load Time (ms)')
             
             
-            validation_accuracy = store_data_multi_tests(validation_accuracy, data_name, graph_model, img_path, 'test_cluster_num_' + str(partn) + '_hops_' + str(hop_layer))
-            draw_data_multi_tests(validation_accuracy, data_name, 'vali_cluster_num_' + str(partn) + '_hop_' + str(hop_layer), 'models', 'Accuracy')
-
-            validation_f1 = store_data_multi_tests(validation_f1, data_name, graph_model, img_path, 'validation_cluster_num_' + str(partn) + '_hops_' + str(hop_layer))
-            draw_data_multi_tests(validation_f1, data_name, 'vali_cluster_num_' + str(partn) + '_hop_' + str(hop_layer), 'models', 'F1 score')
-
-            time_train = store_data_multi_tests(time_total_train, data_name, graph_model, img_path, 'train_time_cluster_num_' + str(partn) + '_hops_' + str(hop_layer))
-            draw_data_multi_tests(time_train, data_name, 'train_time_cluster_num_' + str(partn) + '_hop_' + str(hop_layer), 'models', 'Train Time (ms)')
-
-            time_load = store_data_multi_tests(time_data_load, data_name, graph_model, img_path, 'load_time_cluster_num_' + str(partn) + '_hops_' + str(hop_layer))
-            draw_data_multi_tests(time_load, data_name, 'load_time_cluster_num_' + str(partn) + '_hop_' + str(hop_layer), 'models', 'Load Time (ms)')
-
 
 
 if __name__ == '__main__':
@@ -217,8 +166,11 @@ if __name__ == '__main__':
     # test_folder_name = 'train_10%_full_neigh/'
     # image_data_path = './results/' + data_name + '/' + test_folder_name
     # intermediate_data_folder = './'
-    # partition_nums = [32]
-    # layers = [[]]
+    # train_batch_num = 2
+    # GCN_layer = [32]
+    # net_layer_num = len(GCN_layer) + 1
+    # # for non-optimization: hop_layer_num == net_layer_num
+    # hop_layer_num = net_layer_num - 1
 
     # from torch_geometric.datasets import Reddit
     # local_data_root = '~/GCN/Datasets/'
@@ -231,28 +183,46 @@ if __name__ == '__main__':
     test_folder_name = 'flat_memory_save_hpc/train_10%_full_neigh/'
     image_data_path = './results/' + data_name + '/' + test_folder_name
     intermediate_data_folder = './'
-    partition_nums = [2]
-    layers = [[32]]
+    train_batch_num = 2
+    GCN_layer = [32]
+    net_layer_num = len(GCN_layer) + 1
+    # for non-optimization: hop_layer_num == net_layer_num
+    hop_layer_num = net_layer_num - 1
+    # to tune the parameters:
+    tune_param_name = 'batch_epoch_num'
+    tune_val_list = [10, 5]
+    # tune_val_list = [400, 200, 100, 50, 20, 10, 5]
+    trainer_list = list(range(5))
 
     from torch_geometric.datasets import Planetoid
     local_data_root = '/media/xiangli/storage1/projects/tmpdata/'
     dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
     data = dataset[0]
 
+    step0_generate_clustering_machine(data, dataset, intermediate_data_folder, train_batch_num, hop_layer_num)
 
-    step0_generate_clustering_machine(data, dataset, image_data_path, intermediate_data_folder, partition_nums, layers, valid_part_num = 4)
+    step1_generate_train_batch(intermediate_data_folder, train_batch_num, hop_layer_num, train_frac = 0.5, \
+                            batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info_{}.csv'.format('[0,2)') )
 
-    step1_generate_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, train_frac = 0.5, \
-                            batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info.csv')
+    step2_generate_validation_whole_graph(intermediate_data_folder, info_folder = './info_validation_whole/', info_file = 'validation_whole_graph_size_info.csv')
 
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, \
-                                    batch_range = (0, 2), info_folder = './info_validation_batch/', info_file = 'validation_batch_size_info_{}.csv'.format('[0,2)'))
+    # step3 start to tuning train the model, only part needs GPU
 
-    step2_generate_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, validation_frac = 0.5, \
-                                    batch_range = (2, 4), info_folder = './info_validation_batch/', info_file = 'validation_batch_size_info_{}.csv'.format('[2,4)'))
+    for tune_val in tune_val_list:
+        for tainer_id in trainer_list:
+            step30_run_tune_train_batch(intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, GCN_layer, \
+                                trainer_id = tainer_id, dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, epoch_num = 400)
 
-    step3_run_train_batch(image_data_path, intermediate_data_folder, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20)
+    # step4 start to tuning validate the model
+    for tune_val in tune_val_list:
+        for tainer_id in trainer_list:
+            step40_run_tune_validation_whole(image_data_path, intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, net_layer_num, \
+                            trainer_id = tainer_id)
 
-    step4_run_validation_batch(image_data_path, intermediate_data_folder, partition_nums, layers, \
-                    dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, valid_part_num = 4)
+    # step5 summarize all the results into images
+    
+
+    step50_run_tune_summarize_whole(data_name, image_data_path, intermediate_data_folder, tune_param_name, tune_val_list, \
+                                    train_batch_num, hop_layer_num, net_layer_num, trainer_list)
+
+    
