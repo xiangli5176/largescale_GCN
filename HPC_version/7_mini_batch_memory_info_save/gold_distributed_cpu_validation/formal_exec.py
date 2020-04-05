@@ -47,12 +47,12 @@ if __name__ == '__main__':
     dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
     data = dataset[0]
 
-    step0_generate_clustering_machine(data, dataset, intermediate_data_folder, train_batch_num, hop_layer_num)
+    # step0_generate_clustering_machine(data, dataset, intermediate_data_folder, train_batch_num, hop_layer_num)
 
-    step1_generate_train_batch(intermediate_data_folder, train_batch_num, hop_layer_num, train_frac = 0.5, \
-                            batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info_{}.csv'.format('[0,2)') )
+    # step1_generate_train_batch(intermediate_data_folder, train_batch_num, hop_layer_num, train_frac = 0.5, \
+    #                         batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info_{}.csv'.format('[0,2)') )
 
-    step2_generate_validation_whole_graph(intermediate_data_folder, info_folder = './info_validation_whole/', info_file = 'validation_whole_graph_size_info.csv')
+    # step2_generate_validation_whole_graph(intermediate_data_folder, info_folder = './info_validation_whole/', info_file = 'validation_whole_graph_size_info.csv')
 
     # step3 start to tuning train the model, only part needs GPU
 
@@ -61,16 +61,16 @@ if __name__ == '__main__':
             step30_run_tune_train_batch(intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, GCN_layer, \
                                 trainer_id = tainer_id, dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, epoch_num = 400)
 
-    # step4 start to tuning validate the model
-    for tune_val in tune_val_list:
-        for tainer_id in trainer_list:
-            step40_run_tune_validation_whole(image_data_path, intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, net_layer_num, \
-                            trainer_id = tainer_id)
+    # # step4 start to tuning validate the model
+    # for tune_val in tune_val_list:
+    #     for tainer_id in trainer_list:
+    #         step40_run_tune_validation_whole(image_data_path, intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, net_layer_num, \
+    #                         trainer_id = tainer_id)
 
-    # step5 summarize all the results into images
+    # # step5 summarize all the results into images
     
 
-    step50_run_tune_summarize_whole(data_name, image_data_path, intermediate_data_folder, tune_param_name, tune_val_list, \
-                                    train_batch_num, hop_layer_num, net_layer_num, trainer_list)
+    # step50_run_tune_summarize_whole(data_name, image_data_path, intermediate_data_folder, tune_param_name, tune_val_list, \
+    #                                 train_batch_num, hop_layer_num, net_layer_num, trainer_list)
 
     

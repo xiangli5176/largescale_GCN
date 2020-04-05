@@ -1,0 +1,25 @@
+#PBS -N PyGCN_Reddit
+#PBS -l walltime=2:00:00
+#PBS -l nodes=1:gpus=1
+#PBS -l mem=96GB
+#PBS -j oe
+#PBS -A PAS1069
+
+userHome=/users/PAS1069/osu8206
+workshop=${userHome}/GCN/mini_batch_large_scale
+workdir=${workshop}/Reddit/dist_train_batch1_net2_hop1
+
+
+cd $TMPDIR
+cp -avr ${workdir}/data_info ./data_info
+cp -avr ${workdir}/train ./train
+
+cp ${workdir}/module/*.py .
+cp $PBS_O_WORKDIR/*.py .
+
+singularity exec --nv $HOME/Dockers/gpu-pytorch_geometric-v7.sif python formal_exec_id_3.py
+
+cp -avr ./GCN_tuning ${workdir}/
+cp -avr ./info*/ ${workdir}/
+
+cd $PBS_O_WORKDIR
