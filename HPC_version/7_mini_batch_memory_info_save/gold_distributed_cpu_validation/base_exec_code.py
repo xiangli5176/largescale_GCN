@@ -39,10 +39,13 @@ def set_clustering_machine(data, dataset, intermediate_data_folder, test_ratio =
     
     # Set the clustering information storing path
     clustering_file_folder = intermediate_data_folder + 'clustering/'
+    data_info_file_folder = intermediate_data_folder + 'data_info/'
     check_folder_exist(clustering_file_folder)  # if exist then delete
+    check_folder_exist(data_info_file_folder)
     clustering_file_name = clustering_file_folder + 'clustering_machine.txt'
-    data_info_file_name = clustering_file_folder + 'data_info_file.txt'
+    data_info_file_name = data_info_file_folder + 'data_info_file.txt'
     os.makedirs(os.path.dirname(clustering_file_folder), exist_ok=True)
+    os.makedirs(os.path.dirname(data_info_file_folder), exist_ok=True)
     
     # if we use the random assignment of the code, then filtering out the isolated data may not be necessary
 #     connect_edge_index, connect_features, connect_label = filter_out_isolate(data.edge_index, data.x, data.y)
@@ -154,8 +157,8 @@ def Cluster_train_batch_run(trainer_id, intermediate_data_folder, input_layer = 
     return: validation accuracy value, validation F-1 value, time_training (ms), time_data_load (ms)
     """
     
-    clustering_file_folder = intermediate_data_folder + 'clustering/'
-    data_info_file = clustering_file_folder + 'data_info_file.txt'
+    data_info_file_folder = intermediate_data_folder + 'data_info/'
+    data_info_file = data_info_file_folder + 'data_info_file.txt'
     with open(data_info_file, "rb") as fp:
         num_node_features, num_classes = pickle.load(fp)
     
@@ -215,8 +218,8 @@ def Cluster_tune_train_run(intermediate_data_folder, input_layer = [16, 16], epo
     Tuning parameters:  dropout, lr (learning rate), weight_decay: l2 regularization
     return: validation accuracy value, validation F-1 value, time_training (ms), time_data_load (ms)
     """
-    clustering_file_folder = intermediate_data_folder + 'clustering/'
-    data_info_file = clustering_file_folder + 'data_info_file.txt'
+    data_info_file_folder = intermediate_data_folder + 'data_info/'
+    data_info_file = data_info_file_folder + 'data_info_file.txt'
     with open(data_info_file, "rb") as fp:
         num_node_features, num_classes = pickle.load(fp)
     
