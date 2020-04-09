@@ -1,0 +1,2 @@
+model_checkpoint_path: "saver.txt"
+all_model_checkpoint_paths: "saver.txt"

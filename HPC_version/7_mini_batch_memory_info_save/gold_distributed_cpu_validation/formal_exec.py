@@ -57,15 +57,15 @@ if __name__ == '__main__':
     # step3 start to tuning train the model, only part needs GPU
 
     for tune_val in tune_val_list:
-        for tainer_id in trainer_list:
+        for trainer_id in trainer_list:
             step30_run_tune_train_batch(intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, GCN_layer, \
-                                trainer_id = tainer_id, dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, epoch_num = 400)
+                                trainer_id = trainer_id, dropout = 0.1, lr = 0.0001, weight_decay = 0.1, mini_epoch_num = 20, epoch_num = 400)
 
     # # step4 start to tuning validate the model
     # for tune_val in tune_val_list:
-    #     for tainer_id in trainer_list:
+    #     for trainer_id in trainer_list:
     #         step40_run_tune_validation_whole(image_data_path, intermediate_data_folder, tune_param_name, tune_val, train_batch_num, hop_layer_num, net_layer_num, \
-    #                         trainer_id = tainer_id)
+    #                         trainer_id = trainer_id)
 
     # # step5 summarize all the results into images
     
