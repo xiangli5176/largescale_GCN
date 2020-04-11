@@ -20,6 +20,20 @@ def check_folder_exist(folder_path):
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
         shutil.rmtree(folder_path)
 
+def generate_tuning_raw_data_table(data_dict, file_path, file_name, tune_param_name):
+    """
+        data_dict : a dictionary of different runing index with different tuning values
+                data_dict[1]: e.g.  index 1 runing, this is a dictionary of tuning values
+    """
+    target_file = file_path + file_name
+    with open(target_file, 'w', newline='\n') as myfile:
+        wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
+        header = [tune_param_name] + list(data_dict[0].keys())
+        wr.writerow(header)
+        for i, tune_val in data_dict.items():
+            tmp_line = [i] + [tune_val[key] for key in tune_val.keys()]
+            wr.writerow(tmp_line)
+
 def print_dir_content_info(path):
     """
         print out the file information under the path :  (name, size(KB))
