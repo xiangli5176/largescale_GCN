@@ -34,7 +34,6 @@ def generate_tuning_raw_data_table(data_dict, file_path, file_name, tune_param_n
             tmp_line = [i] + [tune_val[key] for key in tune_val.keys()]
             wr.writerow(tmp_line)
 
-
 def print_dir_content_info(path):
     """
         print out the file information under the path :  (name, size(KB))
