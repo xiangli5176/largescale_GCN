@@ -107,10 +107,10 @@ def step0_generate_clustering_machine(data, dataset, intermediate_data_path, tra
                                train_batch_num = train_batch_num, mini_cluster_num = mini_cluster_num, round_num = round_num)
 
 def step1_generate_train_batch(intermediate_data_path, train_batch_num, \
-                               batch_range = (0, 1), info_folder = './info/', info_file = 'train_batch_size_info.csv'):            
+                               batch_range = (0, 1), info_folder = './info/'):            
         # set the save path
         print('Start running for train batch num: ' + str(train_batch_num) )
-
+        info_file = 'train_batch_size_info_{}.csv'.format(str(batch_range))
         # generate the train batches
         set_clustering_machine_train_batch(intermediate_data_path, train_batch_num = train_batch_num, \
                                            batch_range = batch_range, info_folder = info_folder, info_file = info_file)
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     step0_generate_clustering_machine(data, dataset, intermediate_data_folder, train_batch_num, mini_cluster_num = 16, round_num = 2)
 
     step1_generate_train_batch(intermediate_data_folder, train_batch_num, \
-                            batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info_{}.csv'.format('[0,2)') )
+                            batch_range = (0, 2), info_folder = './info_train_batch/' )
 
     step2_generate_validation_whole_graph(intermediate_data_folder, info_folder = './info_validation_whole/', info_file = 'validation_whole_graph_size_info.csv')
 

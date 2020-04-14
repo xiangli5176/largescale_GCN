@@ -31,29 +31,29 @@ if __name__ == '__main__':
     test_folder_name = 'flat_memory_save_hpc/train_10%_full_neigh/'
     image_data_path = './results/' + data_name + '/' + test_folder_name
     intermediate_data_folder = './'
-    origin_train_batch_num = 2
+    origin_train_batch_num = 4
     GCN_layer = [32]
     net_layer_num = len(GCN_layer) + 1
     # for non-optimization: hop_layer_num == net_layer_num
     hop_layer_num = net_layer_num - 1
     # to tune the parameters:
     tune_param_name = 'batch_epoch_num'
-    tune_val_list = [10, 5]
-    # tune_val_list = [400, 200, 100, 50, 20, 10, 5]
-    trainer_list = list(range(5))
+    # tune_val_list = [10, 5]
+    tune_val_list = [400, 200, 100, 50, 20, 10, 5]
+    trainer_list = list(range(7))
 
     round_num = 2
-    train_batch_num = origin_train_batch_num = round_num * origin_train_batch_num
+    train_batch_num = round_num * origin_train_batch_num
 
     from torch_geometric.datasets import Planetoid
     local_data_root = '/media/xiangli/storage1/projects/tmpdata/'
     dataset = Planetoid(root = local_data_root + 'Planetoid/Cora', name=data_name)
     data = dataset[0]
 
-    step0_generate_clustering_machine(data, dataset, intermediate_data_folder, origin_train_batch_num, mini_cluster_num = 16, round_num = round_num)
+    step0_generate_clustering_machine(data, dataset, intermediate_data_folder, origin_train_batch_num, mini_cluster_num = 32, round_num = round_num)
 
     step1_generate_train_batch(intermediate_data_folder, train_batch_num, \
-                            batch_range = (0, 2), info_folder = './info_train_batch/', info_file = 'train_batch_size_info_{}.csv'.format('[0,2)') )
+                            batch_range = (0, train_batch_num), info_folder = './info_train_batch/' )
 
     step2_generate_validation_whole_graph(intermediate_data_folder, info_folder = './info_validation_whole/', info_file = 'validation_whole_graph_size_info.csv')
 
