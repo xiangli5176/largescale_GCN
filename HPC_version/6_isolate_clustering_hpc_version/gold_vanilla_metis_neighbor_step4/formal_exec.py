@@ -40,9 +40,9 @@ if __name__ == '__main__':
     # for non-optimization: hop_layer_num == net_layer_num
     hop_layer_num = net_layer_num        # for this method, the hop_layer_num is the  layer number of neighbors to generate batch from train seed
     tune_param_name = 'batch_epoch_num'
-    tune_val_list = [400]
+    tune_val_list = [400, 200, 100, 50, 10, 5]
     # tune_val_list = [10, 5]
-    trainer_list = list(range(1))
+    trainer_list = list(range(7))
 
     from torch_geometric.datasets import Planetoid
     local_data_root = '/media/xiangli/storage1/projects/tmpdata/'

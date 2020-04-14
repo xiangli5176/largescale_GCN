@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     # pc version test on Cora
     data_name = 'Cora'
-    test_folder_name = 'flat_memory_save_hpc/train_10%_full_neigh/'
+    test_folder_name = 'train_10%_full_neigh/'
     image_data_path = './results/' + data_name + '/' + test_folder_name
     intermediate_data_folder = './metis_trial_1/'
 
@@ -42,9 +42,9 @@ if __name__ == '__main__':
     # for non-optimization: hop_layer_num == net_layer_num
     hop_layer_num = net_layer_num        # for this method, the hop_layer_num is the  layer number of neighbors to generate batch from train seed
     tune_param_name = 'batch_epoch_num'
-    tune_val_list = [400]
+    tune_val_list = [400, 200, 100, 50, 10, 5]
     # tune_val_list = [10, 5]
-    trainer_list = list(range(1))
+    trainer_list = list(range(7))
     round_num = 2
     train_batch_num = origin_train_batch_num = round_num * origin_train_batch_num
 
