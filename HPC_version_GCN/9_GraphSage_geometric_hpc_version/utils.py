@@ -15,6 +15,21 @@ import seaborn as sns
 from torch_scatter import scatter_add
 from torch_geometric.utils import add_remaining_self_loops
 
+def binary_acc(y_test, y_pred):
+    """
+        y_test (np.array) : the true label for the nodes
+        y_pred (np.array) : predicted tags for the nodes
+    """
+    ave_loss = (y_test == y_pred).mean(dtype=np.float).item() 
+    return ave_loss
+
+def print_data_info(data, dataset):
+    
+    print('Info (attributes) of a single data instance')
+    print(data, '\n number of nodes: ', data.num_nodes, '\n number of edges: ', data.num_edges, \
+      '\n number of features per ndoe: ', data.num_node_features, '\n number of edge features: ', data.num_edge_features, \
+      '\n number of classifying labels of dataset: ', dataset.num_classes, \
+      '\n all the attributes of data: ', data.keys)
 
 def check_folder_exist(folder_path):
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
@@ -129,7 +144,7 @@ def filter_out_isolate(edge_index, features, label):
     # if the connected nodes is less than the total graph nodes
     if len(connected_nodes_idx) < features.shape[0]:
     #     print(edge_index.shape, type(edge_index))
-
+        print('isolated nodes number is: ', features.shape[0] - len(connected_nodes_idx))
         mapper = {node: i for i, node in enumerate(connected_nodes_idx)}
         connect_edge_index = [ [ mapper[edge[0]], mapper[edge[1]] ] for edge in edge_index_list ] 
     #     print(len(connected_nodes_idx), connected_nodes_idx[0], connected_nodes_idx[-1])
@@ -142,8 +157,11 @@ def filter_out_isolate(edge_index, features, label):
 
         connect_label = label[connected_nodes_idx]
     #     print(connect_label.shape, type(connect_label))
+        print('connect_label shape is:', connect_label.shape)
         return connect_edge_index, connect_features, connect_label
     else:
+        print('No isolated nodes number is found ')
+        print('Label shape is:', label.shape)
         return edge_index, features, label
 
 ''' Draw the information about the GCN calculating batch size '''
@@ -179,6 +197,7 @@ class draw_trainer_info:
     
     def __init__(self, data_name, ClusterGCNTrainer):
         self.data_name = data_name
+
         epoch_id = list(range(len(ClusterGCNTrainer.record_ave_training_loss)))
         self.trainer_data = {'epoch_id': epoch_id,  \
                              'ave_loss_per_node' : ClusterGCNTrainer.record_ave_training_loss \
@@ -186,7 +205,7 @@ class draw_trainer_info:
 
         self.df = pd.DataFrame(data = self.trainer_data, dtype=np.float64)
     
-    def draw_ave_loss_per_node(self, filename):
+    def draw_ave_loss_per_node(self, image_save_path):
         plt.clf()
         plt.figure()
         sns.set(style='whitegrid')
@@ -194,6 +213,7 @@ class draw_trainer_info:
         g.set_title(self.data_name + ' Ave training loss vs epoch ')
         g.set(xlabel='epoch ID', ylabel='Ave training loss per node')
 #         fig = g.get_figure()
+        filename = image_save_path + self.data_name + '_train_loss'
         # estalbish a new directory for the target saving file
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename, bbox_inches='tight')
@@ -215,7 +235,7 @@ def store_data_multi_tests(f1_data, data_name, graph_model, img_path, comments):
 
 
 ''' func for tuning hyper-parameter of the mini-batch model '''
-def store_data_multi_tuning(tune_params, target, data_name, img_path, comments):
+def store_data_multi_tuning(tune_val_list, target, data_name, img_path, comments):
     """
         tune_params: is the tuning parameter list
         target: is the result, here should be F1-score, accuraycy, load time, train time
@@ -224,7 +244,7 @@ def store_data_multi_tuning(tune_params, target, data_name, img_path, comments):
     run_data = {'run_id': run_ids}
     # the key can be converted to string or not: i.e. str(tune_val)
     # here we keep it as integer such that we want it to follow order
-    tmp = {tune_val : [target[run_id][tune_val] for run_id in run_ids] for tune_val in tune_params}  # the value is list
+    tmp = {tune_val : [target[run_id][tune_val] for run_id in run_ids] for tune_val in tune_val_list}  # the value is list
     run_data.update(tmp)
     
     pickle_filename = img_path + data_name + '_' + comments + '.pkl'

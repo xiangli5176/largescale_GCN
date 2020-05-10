@@ -195,10 +195,9 @@ def draw_cluster_info(clustering_machine, data_name, img_path, comments = '_clus
 
 class draw_trainer_info:
     
-    def __init__(self, data_name, ClusterGCNTrainer, image_save_path, comments):
+    def __init__(self, data_name, ClusterGCNTrainer):
         self.data_name = data_name
-        self.image_save_path = image_save_path
-        self.comments = comments
+
         epoch_id = list(range(len(ClusterGCNTrainer.record_ave_training_loss)))
         self.trainer_data = {'epoch_id': epoch_id,  \
                              'ave_loss_per_node' : ClusterGCNTrainer.record_ave_training_loss \
@@ -206,15 +205,15 @@ class draw_trainer_info:
 
         self.df = pd.DataFrame(data = self.trainer_data, dtype=np.float64)
     
-    def draw_ave_loss_per_node(self):
+    def draw_ave_loss_per_node(self, image_save_path):
         plt.clf()
         plt.figure()
         sns.set(style='whitegrid')
         g = sns.lineplot(x="epoch_id", y="ave_loss_per_node", data = self.df)
-        g.set_title(self.data_name + ' Ave training loss vs epoch ' + self.comments)
+        g.set_title(self.data_name + ' Ave training loss vs epoch ')
         g.set(xlabel='epoch ID', ylabel='Ave training loss per node')
 #         fig = g.get_figure()
-        filename = self.image_save_path + self.data_name + '_train_loss_' + self.comments
+        filename = image_save_path + self.data_name + '_train_loss'
         # estalbish a new directory for the target saving file
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename, bbox_inches='tight')
