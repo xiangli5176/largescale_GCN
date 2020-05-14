@@ -6,6 +6,7 @@ import os
 import shutil
 import copy
 import csv
+import pickle
 
 import pandas as pd
 import seaborn as sns
@@ -253,6 +254,7 @@ def store_data_multi_tuning(tune_val_list, target, data_name, img_path, comments
     df.to_pickle(pickle_filename)
     return pickle_filename
 
+# to tuning investigate the test F1-score for the whole graph on CPU side during training to check convergence
 def store_data_multi_investigate(investigate_res, data_name, res_name, img_path, comments):
     """
         investigate_res: currently either F1-score or accuracy a dict {epoch num : value}
@@ -289,3 +291,45 @@ def draw_data_multi_tests(pickle_filename, data_name, comments, xlabel, ylabel):
     img_name = pickle_filename[:-4] + '_img'
     os.makedirs(os.path.dirname(img_name), exist_ok=True)
     plt.savefig(img_name, bbox_inches='tight')
+
+
+# to tuning investigate the validation F1-score on GPU side during training to check convergence
+def store_data_each_trainer_investigate(investigate_res, data_name, res_name, img_path, comments):
+    """
+        investigate_res: currently either F1-score or accuracy a dict {epoch num : value}
+    """
+    
+    pickle_filename = img_path + data_name + '_' + res_name + '_' + comments + '.pkl'
+    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
+    
+    with open(pickle_filename, "wb") as fp:
+        pickle.dump(investigate_res, fp)
+    return pickle_filename
+
+def draw_data_validation_F1_trainer(pickle_filename, data_name, comments, xlabel, ylabel):
+    """
+        Draw the figure for from the stored data (multiple store functions)
+    """
+    with open(pickle_filename, "rb") as fp:
+        res_trainer = pickle.load(fp)
+    
+    for trainer_id, F1_track in res_trainer.items():
+        img_name = pickle_filename[:-4] + '_img_trainer_' + str(trainer_id)
+        
+        plt.clf()
+        plt.figure()
+        sns.set(style='whitegrid')
+        
+        Validation_F1 = {}
+        Validation_F1[xlabel] = sorted(F1_track.keys())
+        Validation_F1[ylabel] = [F1_track[key] for key in Validation_F1[xlabel]]
+        df = pd.DataFrame(Validation_F1) 
+        
+        g = sns.relplot(x = xlabel, y = ylabel, markers=True, kind="line", data=df)
+        g.despine(left=True)
+        g.fig.suptitle(data_name + ' ' + ylabel + ' ' + comments)
+        g.set_xlabels(xlabel)
+        g.set_ylabels(ylabel)
+
+        os.makedirs(os.path.dirname(img_name), exist_ok=True)
+        plt.savefig(img_name, bbox_inches='tight')
