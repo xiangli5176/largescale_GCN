@@ -7,12 +7,13 @@ import shutil
 import copy
 import csv
 import pickle
+from collections import Counter
 
 import pandas as pd
 import seaborn as sns
+from sklearn.preprocessing import StandardScaler
 
-# from Cluster_Machine import ClusteringMachine
-# from Cluster_Trainer import ClusterGCNTrainer_mini_Train
+
 from torch_scatter import scatter_add
 from torch_geometric.utils import add_remaining_self_loops
 
@@ -31,6 +32,27 @@ def print_data_info(data, dataset):
       '\n number of features per ndoe: ', data.num_node_features, '\n number of edge features: ', data.num_edge_features, \
       '\n number of classifying labels of dataset: ', dataset.num_classes, \
       '\n all the attributes of data: ', data.keys)
+
+
+def print_edge_index_info(edge_index):
+    """
+        edge_index : torch.tensor of shape (2, :)
+    """
+    print('edge index shape is : ', edge_index.shape)
+    pair_count = Counter()
+    self_loop_count = 0
+    edge_index_tr = torch.transpose(edge_index, 0, 1)
+    for a, b in edge_index_tr.numpy():
+        if a == b:
+            self_loop_count += 1
+        elif a > b:
+            a, b = b, a
+        pair_count[(a, b)] += 1
+
+    print('number of self-loops: ', self_loop_count)
+    print('number of unique edges: ', len(pair_count))
+    odds = [key for key, val in pair_count.items() if val != 2]
+    print('Length of the odds: ', len(odds))
 
 def check_folder_exist(folder_path):
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
@@ -132,7 +154,7 @@ def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dty
     return input_edge_weight_txt_file
 
 # remove all the isolated nodes, otherwise metis won't work normally
-def filter_out_isolate(edge_index, features, label):
+def filter_out_isolate_normalize_feature(edge_index, features, label):
     """
     edge_index: torch.Tensor (2 by 2N) for undirected edges in COO format
     features:  torch.Tensor(N by k)  for N nodes and K features
@@ -142,6 +164,8 @@ def filter_out_isolate(edge_index, features, label):
     connect_graph = nx.from_edgelist(edge_index_list)
     # filter out all the isolated nodes:
     connected_nodes_idx = sorted(node for node in connect_graph.nodes())
+
+    scaler = StandardScaler()
     # if the connected nodes is less than the total graph nodes
     if len(connected_nodes_idx) < features.shape[0]:
     #     print(edge_index.shape, type(edge_index))
@@ -158,11 +182,15 @@ def filter_out_isolate(edge_index, features, label):
 
         connect_label = label[connected_nodes_idx]
     #     print(connect_label.shape, type(connect_label))
+        connect_features = torch.tensor(scaler.fit_transform(connect_features), dtype=torch.float32)
+
         print('connect_label shape is:', connect_label.shape)
         return connect_edge_index, connect_features, connect_label
     else:
         print('No isolated nodes number is found ')
         print('Label shape is:', label.shape)
+        
+        features = torch.tensor(scaler.fit_transform(features), dtype=torch.float32)
         return edge_index, features, label
 
 ''' Draw the information about the GCN calculating batch size '''
@@ -222,6 +250,35 @@ class draw_trainer_info:
 
 
 ''' func for Execution of each specific model '''
+def summarize_tuning_res(image_path, mini_batch_folder, tune_param_name, tune_val_label_list, tune_val_list, trainer_list):
+    """
+        tune_val_label_list :  label of the tuning parameter value for file location
+        tune_val_list  :       the real value of the tuning parameter
+    """
+    test_accuracy = {}
+    test_f1 = {}
+    time_total_train = {}
+    time_data_load = {}
+    
+    res = []
+    for trainer_id in trainer_list:
+        ref = {}
+        for tune_val_label, tune_val in zip(tune_val_label_list, tune_val_list):
+            test_res_folder = image_path + 'test_res/tune_' + tune_param_name + '_' + str(tune_val_label) + '/'
+            test_res_file = test_res_folder + 'res_trainer_' + str(trainer_id)
+            with open(test_res_file, "rb") as fp:
+                ref[tune_val] = pickle.load(fp)
+        res.append(ref)
+    
+    for i, ref in enumerate(res):
+        test_accuracy[i] = {tune_val : res_lst[0] for tune_val, res_lst in ref.items()}
+        test_f1[i] = {tune_val : res_lst[1] for tune_val, res_lst in ref.items()}
+        time_total_train[i] = {tune_val : res_lst[2] for tune_val, res_lst in ref.items()}
+        time_data_load[i] = {tune_val : res_lst[3] for tune_val, res_lst in ref.items()}
+        
+    return test_accuracy, test_f1, time_total_train, time_data_load
+
+
 def store_data_multi_tests(f1_data, data_name, graph_model, img_path, comments):
     run_id = sorted(f1_data.keys())
     run_data = {'run_id': run_id}
@@ -254,7 +311,22 @@ def store_data_multi_tuning(tune_val_list, target, data_name, img_path, comments
     df.to_pickle(pickle_filename)
     return pickle_filename
 
+
+# ==============================================================================================
 # to tuning investigate the test F1-score for the whole graph on CPU side during training to check convergence
+def summarize_investigation_res(image_path, mini_batch_folder, trainer_list):
+    Train_peroid_f1 = {}
+    Train_peroid_accuracy = {}
+    
+    for trainer_id in trainer_list:
+        ref = {}
+        test_res_file = image_path + 'res_trainer_' + str(trainer_id)
+        with open(test_res_file, "rb") as fp:
+            Train_peroid_f1[trainer_id], Train_peroid_accuracy[trainer_id] = pickle.load(fp)
+        
+    return Train_peroid_f1, Train_peroid_accuracy
+
+
 def store_data_multi_investigate(investigate_res, data_name, res_name, img_path, comments):
     """
         investigate_res: currently either F1-score or accuracy a dict {epoch num : value}
@@ -292,7 +364,7 @@ def draw_data_multi_tests(pickle_filename, data_name, comments, xlabel, ylabel):
     os.makedirs(os.path.dirname(img_name), exist_ok=True)
     plt.savefig(img_name, bbox_inches='tight')
 
-
+# ------------------------------------------------------------------------------------------------
 # to tuning investigate the validation F1-score on GPU side during training to check convergence
 def store_data_each_trainer_investigate(investigate_res, data_name, res_name, img_path, comments):
     """

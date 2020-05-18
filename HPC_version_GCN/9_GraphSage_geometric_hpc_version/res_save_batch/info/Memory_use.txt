@@ -1,0 +1,60 @@
+
+after split: 
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 1663488
+GPU max_memory_allocated in bytes: 11480576
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 27262976
+GPU max_memory_cached in bytes: 27262976
+
+after train clustering: 
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 1663488
+GPU max_memory_allocated in bytes: 1663488
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 27262976
+GPU max_memory_cached in bytes: 27262976
+
+after test clustering:  
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 1663488
+GPU max_memory_allocated in bytes: 1663488
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 27262976
+GPU max_memory_cached in bytes: 27262976
+
+after generating trainer:  
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 1661440
+GPU max_memory_allocated in bytes: 1665536
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 27262976
+GPU max_memory_cached in bytes: 27262976
+
+after training the batch:  
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 1667584
+GPU max_memory_allocated in bytes: 1698816
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 27262976
+GPU max_memory_cached in bytes: 27262976
+
+after validating the batch:  
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 1663488
+GPU max_memory_allocated in bytes: 1667584
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 27262976
+GPU max_memory_cached in bytes: 27262976
