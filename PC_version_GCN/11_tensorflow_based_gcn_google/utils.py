@@ -68,21 +68,31 @@ def normalize_adj_diag_enhance(adj, diag_lambda):
   """Normalization by  
       A'=(D+I)^{-1}(A+I), A'=A'+lambda*diag(A').
     """
+  # 1) first add identity matrix (A + I)
   adj = adj + sp.eye(adj.shape[0])
+
+  # 2) normalzie (D+I)^(A+I)
   rowsum = np.array(adj.sum(1)).flatten()
   d_inv = 1.0 / (rowsum + 1e-20)
   d_mat_inv = sp.diags(d_inv, 0)
   adj = d_mat_inv.dot(adj)
-  adj = adj + diag_lambda * sp.diags(adj.diagonal(), 0)
+  # 3) scipy.sparse.diags(diagonals, offsets=0, shape=None, format=None, dtype=None)[source]
+  # Construct a sparse matrix from diagonals
+  # offset == 0 : the main diagonal
+  adj = adj + diag_lambda * sp.diags(adj.diagonal(), 0)  
   return adj
 
 
 def sparse_to_tuple(sparse_mx):
-  """Convert sparse matrix to tuple representation."""
+  """
+    Convert sparse matrix to tuple representation.
+    sparse_mx (scipy.sparse.csr_matrix):  a csr_matrix as returned from the partition_utils
+  """
 
   def to_tuple(mx):
+    # to check whwther the matrix is coo_matrix type?
     if not sp.isspmatrix_coo(mx):
-      mx = mx.tocoo()
+      mx = mx.tocoo()    # 
     coords = np.vstack((mx.row, mx.col)).transpose()
     values = mx.data
     shape = mx.shape
@@ -169,11 +179,13 @@ def preprocess(adj, features, y_train, train_mask, visible_data, num_clusters, d
 
   # Do graph partitioning
   part_adj, parts = partition_utils.partition_graph(adj, visible_data, num_clusters)
-
+  # part_adj: is the csr_matrix for the adjacency matrix of the whole graph
   if diag_lambda == -1:
     part_adj = normalize_adj(part_adj)
   else:
     part_adj = normalize_adj_diag_enhance(part_adj, diag_lambda)
+
+  # part_adj: is the normalized edges weights for the whole graph
   parts = [np.array(pt) for pt in parts]
 
   features_batches = []
@@ -183,8 +195,10 @@ def preprocess(adj, features, y_train, train_mask, visible_data, num_clusters, d
   total_nnz = 0
   for pt in parts:
     features_batches.append(features[pt, :])
+    # extract a submatrix from the csr_matrix:  part_adj
     now_part = part_adj[pt, :][:, pt]
     total_nnz += now_part.count_nonzero()
+    # 
     support_batches.append(sparse_to_tuple(now_part))
     y_train_batches.append(y_train[pt, :])
 

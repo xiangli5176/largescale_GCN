@@ -1,0 +1,40 @@
+
+after tune training: 
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 747520
+GPU max_memory_allocated in bytes: 35457536
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 71303168
+GPU max_memory_cached in bytes: 71303168
+
+after tune training: 
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 747520
+GPU max_memory_allocated in bytes: 35457536
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 71303168
+GPU max_memory_cached in bytes: 71303168
+
+after tune training: 
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 747520
+GPU max_memory_allocated in bytes: 35457536
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 71303168
+GPU max_memory_cached in bytes: 71303168
+
+after tune training: 
+================================================================================
+With the Pytorch Version: 1.4.0
+------------------------------info about allocated memory: ------------------------------
+GPU allocated memory is: 747520
+GPU max_memory_allocated in bytes: 35457536
+------------------------------info about cached memory: 
+GPU memory_cached in bytes: 71303168
+GPU max_memory_cached in bytes: 71303168

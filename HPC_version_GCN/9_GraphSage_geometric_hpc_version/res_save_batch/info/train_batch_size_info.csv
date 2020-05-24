@@ -1,10 +1,10 @@
 
 train_batch_node_id, train_batch_node_size
-1,2
+1,4
 2,2
 
 train_batch_edge_id, train_batch_edge_size
-1,4
+1,10
 2,4
 
 train_seed_node_id, train_seed_node_size
