@@ -63,6 +63,7 @@ def generate_tuning_raw_data_table(data_dict, file_path, file_name, tune_param_n
         data_dict : a dictionary of different runing index with different tuning values
                 data_dict[1]: e.g.  index 1 runing, this is a dictionary of tuning values
     """
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     target_file = file_path + file_name
     with open(target_file, 'w', newline='\n') as myfile:
         wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
