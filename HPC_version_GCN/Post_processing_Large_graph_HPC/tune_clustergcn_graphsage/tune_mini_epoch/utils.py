@@ -7,6 +7,7 @@ import shutil
 import copy
 import csv
 import pickle
+from collections import Counter, defaultdict
 
 import pandas as pd
 import seaborn as sns
@@ -32,6 +33,27 @@ def print_data_info(data, dataset):
       '\n number of classifying labels of dataset: ', dataset.num_classes, \
       '\n all the attributes of data: ', data.keys)
 
+
+def print_edge_index_info(edge_index):
+    """
+        edge_index : torch.tensor of shape (2, :)
+    """
+    print('edge index shape is : ', edge_index.shape)
+    pair_count = Counter()
+    self_loop_count = 0
+    edge_index_tr = torch.transpose(edge_index, 0, 1)
+    for a, b in edge_index_tr.numpy():
+        if a == b:
+            self_loop_count += 1
+        elif a > b:
+            a, b = b, a
+        pair_count[(a, b)] += 1
+
+    print('number of self-loops: ', self_loop_count)
+    print('number of unique edges: ', len(pair_count))
+    odds = [key for key, val in pair_count.items() if val != 2]
+    print('Length of the odds: ', len(odds))
+
 def check_folder_exist(folder_path):
     if os.path.exists(folder_path) and os.path.isdir(folder_path):
         shutil.rmtree(folder_path)
@@ -41,6 +63,7 @@ def generate_tuning_raw_data_table(data_dict, file_path, file_name, tune_param_n
         data_dict : a dictionary of different runing index with different tuning values
                 data_dict[1]: e.g.  index 1 runing, this is a dictionary of tuning values
     """
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     target_file = file_path + file_name
     with open(target_file, 'w', newline='\n') as myfile:
         wr = csv.writer(myfile, quoting=csv.QUOTE_ALL)
@@ -85,7 +108,8 @@ def output_GPU_memory_usage(file_name, target_folder, comment =''):
         
 # preprocessing the data: 
 # generate the edge_weight after adding self-loops
-def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None, store_path='./tmp/'):
+
+def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dtype=None, diag_lambda = -1, store_path='./tmp/'):
     """
         edge_index(ndarray): undirected edge index (two-directions both included)
         num_nodes(int):  number of nodes inside the graph
@@ -113,7 +137,11 @@ def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dty
     deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
     # normalize the edge weight
     normalized_edge_weight = deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
-
+    # enhanced logic to impose on the diagonal / self-loop elements
+    if diag_lambda != -1:
+        mask = row == col
+        normalized_edge_weight[mask] += diag_lambda * normalized_edge_weight[mask]
+    
     # transfer from tensor to the numpy to construct the dict for the edge_weights
     edge_index = edge_index.t().numpy()
     normalized_edge_weight = normalized_edge_weight.numpy()
@@ -130,6 +158,8 @@ def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dty
         for line in output:
             wr.writerow(line)
     return input_edge_weight_txt_file
+
+
 
 # remove all the isolated nodes, otherwise metis won't work normally
 def filter_out_isolate_normalize_feature(edge_index, features, label):
@@ -171,6 +201,8 @@ def filter_out_isolate_normalize_feature(edge_index, features, label):
         features = torch.tensor(scaler.fit_transform(features), dtype=torch.float32)
         return edge_index, features, label
 
+
+### =============================== begin of draw func ==============================
 ''' Draw the information about the GCN calculating batch size '''
 def draw_cluster_info(clustering_machine, data_name, img_path, comments = '_cluster_node_distr'):
     """
@@ -224,145 +256,7 @@ class draw_trainer_info:
         # estalbish a new directory for the target saving file
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         plt.savefig(filename, bbox_inches='tight')
-        
 
-
-''' func for Execution of each specific model '''
-def summarize_tuning_res(image_path, mini_batch_folder, tune_param_name, tune_val_label_list, tune_val_list, trainer_list):
-    """
-        tune_val_label_list :  label of the tuning parameter value for file location
-        tune_val_list  :       the real value of the tuning parameter
-    """
-    test_accuracy = {}
-    test_f1 = {}
-    time_total_train = {}
-    time_data_load = {}
-    
-    res = []
-    for trainer_id in trainer_list:
-        ref = {}
-        for tune_val_label, tune_val in zip(tune_val_label_list, tune_val_list):
-            test_res_folder = image_path + 'test_res/tune_' + tune_param_name + '_' + str(tune_val_label) + '/'
-            test_res_file = test_res_folder + 'res_trainer_' + str(trainer_id)
-            with open(test_res_file, "rb") as fp:
-                ref[tune_val] = pickle.load(fp)
-        res.append(ref)
-    
-    for i, ref in enumerate(res):
-        test_accuracy[i] = {tune_val : res_lst[0] for tune_val, res_lst in ref.items()}
-        test_f1[i] = {tune_val : res_lst[1] for tune_val, res_lst in ref.items()}
-        time_total_train[i] = {tune_val : res_lst[2] for tune_val, res_lst in ref.items()}
-        time_data_load[i] = {tune_val : res_lst[3] for tune_val, res_lst in ref.items()}
-        
-    return test_accuracy, test_f1, time_total_train, time_data_load
-
-
-def store_data_multi_tests(f1_data, data_name, graph_model, img_path, comments):
-    run_id = sorted(f1_data.keys())
-    run_data = {'run_id': run_id}
-    
-    run_data.update({model_name : [f1_data[key][idx] for key in run_id] for idx, model_name in enumerate(graph_model)})
-    
-    pickle_filename = img_path + data_name + '_' + comments + '.pkl'
-    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
-    df = pd.DataFrame(data=run_data, dtype=np.int32)
-    df.to_pickle(pickle_filename)
-    return pickle_filename
-
-
-''' func for tuning hyper-parameter of the mini-batch model '''
-def store_data_multi_tuning(tune_val_list, target, data_name, img_path, comments):
-    """
-        tune_params: is the tuning parameter list
-        target: is the result, here should be F1-score, accuraycy, load time, train time
-    """
-    run_ids = sorted(target.keys())   # key is the run_id
-    run_data = {'run_id': run_ids}
-    # the key can be converted to string or not: i.e. str(tune_val)
-    # here we keep it as integer such that we want it to follow order
-    tmp = {tune_val : [target[run_id][tune_val] for run_id in run_ids] for tune_val in tune_val_list}  # the value is list
-    run_data.update(tmp)
-    
-    pickle_filename = img_path + data_name + '_' + comments + '.pkl'
-    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
-    df = pd.DataFrame(data=run_data, dtype=np.int32)
-    df.to_pickle(pickle_filename)
-    return pickle_filename
-
-
-def store_data_multi_investigate(investigate_res, data_name, res_name, img_path, comments):
-    """
-        investigate_res: currently either F1-score or accuracy a dict {epoch num : value}
-    """
-    run_id = sorted(investigate_res.keys())
-    run_data = {'run_id': run_id}
-    
-    epoch_num_range = sorted(investigate_res[0].keys())  # at least one entry exists inside the dictionary and the epoch range is fixed
-    run_data.update({epoch_num : [investigate_res[key][epoch_num] for key in run_id] for epoch_num in epoch_num_range})
-    
-    pickle_filename = img_path + data_name + '_' + res_name + '_' + comments + '.pkl'
-    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
-    df = pd.DataFrame(data=run_data, dtype=np.int32)
-    df.to_pickle(pickle_filename)
-    return pickle_filename
-
-
-def draw_data_multi_tests(pickle_filename, data_name, comments, xlabel, ylabel):
-    """
-        Draw the figure for from the stored data (multiple store functions)
-    """
-    df = pd.read_pickle(pickle_filename)
-    df_reshape = df.melt('run_id', var_name = 'model', value_name = ylabel)
-
-    plt.clf()
-    plt.figure()
-    sns.set(style='whitegrid')
-    g = sns.catplot(x="model", y=ylabel, kind='box', data=df_reshape)
-    g.despine(left=True)
-    g.fig.suptitle(data_name + ' ' + ylabel + ' ' + comments)
-    g.set_xlabels(xlabel)
-    g.set_ylabels(ylabel)
-
-    img_name = pickle_filename[:-4] + '_img'
-    os.makedirs(os.path.dirname(img_name), exist_ok=True)
-    plt.savefig(img_name, bbox_inches='tight')
-
-# ------------------------------------------------------------------------------------------------
-# to tuning investigate the validation F1-score on GPU side during training to check convergence
-def summarize_investigation_distr_res(image_path, trainer_list, model_epoch_list):
-    """
-        return:
-        Train_peroid_f1(a dict of dict) : for each trainer, a dict of f1 for each epoch timepoint during training
-    """
-    Train_peroid_f1 = {}
-    Train_peroid_accuracy = {}
-    
-    for trainer_id in trainer_list:
-        validation_res_folder = image_path + 'model_trainer_' + str(trainer_id) + '/'
-        
-        f1_epoch = {}
-        accuracy_epoch = {}
-        for validation_epoch in model_epoch_list:
-            validation_res_file_name = validation_res_folder + 'model_epoch_' + str(validation_epoch)
-            with open(validation_res_file_name, "rb") as fp:
-                f1_epoch[validation_epoch], accuracy_epoch[validation_epoch] = pickle.load(fp)
-        
-        Train_peroid_f1[trainer_id], Train_peroid_accuracy[trainer_id] = f1_epoch, accuracy_epoch
-        
-    return Train_peroid_f1, Train_peroid_accuracy    
-
-
-def store_data_each_trainer_investigate(investigate_res, data_name, res_name, img_path, comments):
-    """
-        investigate_res: currently either F1-score or accuracy a dict {epoch num : value}
-    """
-    
-    pickle_filename = img_path + data_name + '_' + res_name + '_' + comments + '.pkl'
-    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
-    
-    with open(pickle_filename, "wb") as fp:
-        pickle.dump(investigate_res, fp)
-    return pickle_filename
 
 def draw_data_validation_F1_trainer(pickle_filename, data_name, comments, xlabel, ylabel):
     """
@@ -391,3 +285,135 @@ def draw_data_validation_F1_trainer(pickle_filename, data_name, comments, xlabel
 
         os.makedirs(os.path.dirname(img_name), exist_ok=True)
         plt.savefig(img_name, bbox_inches='tight')
+
+
+def draw_data_multi_tests(pickle_filename, data_name, comments, xlabel, ylabel):
+    """
+        Draw the figure for from the stored data (multiple store functions)
+    """
+    df = pd.read_pickle(pickle_filename)
+    df_reshape = df.melt('run_id', var_name = 'model', value_name = ylabel)
+
+    plt.clf()
+    plt.figure()
+    sns.set(style='whitegrid')
+    g = sns.catplot(x="model", y=ylabel, kind='box', data=df_reshape)
+    g.despine(left=True)
+    g.fig.suptitle(data_name + ' ' + ylabel + ' ' + comments)
+    g.set_xlabels(xlabel)
+    g.set_ylabels(ylabel)
+
+    img_name = pickle_filename[:-4] + '_img'
+    os.makedirs(os.path.dirname(img_name), exist_ok=True)
+    plt.savefig(img_name, bbox_inches='tight')
+
+
+
+### =============================== End of draw func ==============================
+
+### =============================== Begin of store and summarize ==================
+
+### ======================== One single test =========================================
+def store_data_multi_one_test(f1_data, data_name, graph_model, img_path, comments):
+    run_id = sorted(f1_data.keys())
+    run_data = {'run_id': run_id}
+    
+    run_data.update({model_name : [f1_data[key][idx] for key in run_id] for idx, model_name in enumerate(graph_model)})
+    
+    pickle_filename = img_path + data_name + '_' + comments + '.pkl'
+    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
+    df = pd.DataFrame(data=run_data, dtype=np.int32)
+    df.to_pickle(pickle_filename)
+    return pickle_filename
+
+### ========================= For investigation on validation ========================
+def summarize_investigation_distr_res(validation_folder, trainer_list, model_epoch_list):
+    """
+        return:
+        Train_peroid_f1(a dict of dict) : for each trainer, a dict of f1 for each epoch timepoint during training
+    """
+    Train_peroid_f1 = {}
+    Train_peroid_accuracy = {}
+    
+    for trainer_id in trainer_list:
+        validation_res_folder = validation_folder + 'validation_trainer_' + str(trainer_id) + '/'
+        
+        f1_epoch = {}
+        accuracy_epoch = {}
+        for validation_epoch in model_epoch_list:
+            res_model_file_name = validation_res_folder + 'model_epoch_' + str(validation_epoch)
+            with open(res_model_file_name, "rb") as fp:
+                f1_epoch[validation_epoch], accuracy_epoch[validation_epoch] = pickle.load(fp)
+        
+        Train_peroid_f1[trainer_id], Train_peroid_accuracy[trainer_id] = f1_epoch, accuracy_epoch
+        
+    return Train_peroid_f1, Train_peroid_accuracy            
+
+def store_data_each_trainer_investigate(investigate_res, data_name, res_name, img_path, comments):
+    """
+        investigate_res: currently either F1-score or accuracy a dict {epoch num : value}
+    """
+    
+    pickle_filename = img_path + data_name + '_' + res_name + '_' + comments + '.pkl'
+    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
+    
+    with open(pickle_filename, "wb") as fp:
+        pickle.dump(investigate_res, fp)
+    return pickle_filename
+
+
+### ========================= For investigation on tests ========================
+def summarize_tuning_res(image_path, mini_batch_folder, tune_param_name, tune_val_label_list, tune_val_list, trainer_list):
+    """
+        tune_val_label_list :  label of the tuning parameter value for file location
+        tune_val_list  :       the real value of the tuning parameter
+    """
+    test_accuracy = {}
+    test_f1 = {}
+    time_total_train = {}
+    time_data_load = {}
+    
+    res = []
+    for trainer_id in trainer_list:
+        ref = defaultdict(list)
+        for tune_val_label, tune_val in zip(tune_val_label_list, tune_val_list):
+            # first add the accuracy and f1 from the test results
+            test_res_folder = mini_batch_folder + 'test_res/tune_' + tune_param_name + '_' + str(tune_val_label) + '/'
+            test_res_file = test_res_folder + 'res_trainer_' + str(trainer_id)
+            with open(test_res_file, "rb") as fp:
+                ref[tune_val] += list(pickle.load(fp))
+                
+            # second add the time_train_total and time_train_data_load from the validation results
+            time_res_folder = mini_batch_folder + 'validation_res/tune_' + tune_param_name + '_' + str(tune_val_label) + '/validation_trainer_' + str(trainer_id) + '/'
+            time_res_file_name = time_res_folder + 'time_total_and_load'
+            with open(time_res_file_name, "rb") as fp:
+                ref[tune_val] += list(pickle.load(fp))
+                
+        res.append(ref)
+    
+    for i, ref in enumerate(res):
+        test_f1[i] = {tune_val : res_lst[0] for tune_val, res_lst in ref.items()}
+        test_accuracy[i] = {tune_val : res_lst[1] for tune_val, res_lst in ref.items()}
+        time_total_train[i] = {tune_val : res_lst[2] for tune_val, res_lst in ref.items()}
+        time_data_load[i] = {tune_val : res_lst[3] for tune_val, res_lst in ref.items()}
+        
+    return test_f1, test_accuracy, time_total_train, time_data_load
+
+
+def store_data_multi_tuning(tune_params, target, data_name, img_path, comments):
+    """
+        tune_params: is the tuning parameter list
+        target: is the result, here should be F1-score, accuraycy, load time, train time
+    """
+    run_ids = sorted(target.keys())   # key is the run_id
+    run_data = {'run_id': run_ids}
+    # the key can be converted to string or not: i.e. str(tune_val)
+    # here we keep it as integer such that we want it to follow order
+    tmp = {tune_val : [target[run_id][tune_val] for run_id in run_ids] for tune_val in tune_params}  # the value is list
+    run_data.update(tmp)
+    
+    pickle_filename = img_path + data_name + '_' + comments + '.pkl'
+    os.makedirs(os.path.dirname(pickle_filename), exist_ok=True)
+    df = pd.DataFrame(data=run_data, dtype=np.int32)
+    df.to_pickle(pickle_filename)
+    return pickle_filename
