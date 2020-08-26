@@ -81,11 +81,10 @@ class SAGEConv(MessagePassing):
         self.cached_num_edges = None
 
     @staticmethod
-    def norm(edge_index, num_nodes, edge_weight=None, improved=False,
+    def edge_update(edge_index, num_nodes, edge_weight=None, improved=False,
              dtype=None, diag_lambda = -1):
         """
-            Normalization by  
-            A'=(D+I)^{-1}(A+I), A'=A'+lambda*diag(A').
+            update the edge_index and edge_weights by adding the self_loops
         """
         
         if edge_weight is None:
@@ -96,21 +95,8 @@ class SAGEConv(MessagePassing):
         edge_index, edge_weight = add_remaining_self_loops(
             edge_index, edge_weight, fill_value, num_nodes)
 
-        row, col = edge_index
-        deg = scatter_add(edge_weight, row, dim=0, dim_size=num_nodes)
-        deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
 
-        A_prime = deg_inv_sqrt[row] * edge_weight * deg_inv_sqrt[col]
-        # print('inside norm, shape of the edge_index and A_prime are:')
-        # print(type(edge_index), edge_index.shape)
-        # print(type(A_prime), A_prime.shape)
-        # print('diag_lambda val is: ', diag_lambda)
-        if diag_lambda != -1:
-            mask = row == col
-            A_prime[mask] += diag_lambda * A_prime[mask]
-
-        return edge_index, A_prime
+        return edge_index, edge_weight
 
     def forward(self, x, edge_index, edge_weight=None, dropout_training=True):
         """
@@ -134,12 +120,10 @@ class SAGEConv(MessagePassing):
 
         if not self.cached or self.cached_result is None:
             self.cached_num_edges = edge_index.size(1)
-            if self.normalize:
-                edge_index, norm = self.norm(edge_index, x.size(self.node_dim),
-                                             edge_weight, self.improved,
-                                             x.dtype, self.diag_lambda)
-            else:
-                norm = edge_weight
+            # norm here is the: add_self_loop edge weight, not normalized actually
+            edge_index, norm = self.edge_update(edge_index, x.size(self.node_dim),
+                                            edge_weight, self.improved,
+                                            x.dtype, self.diag_lambda)
             self.cached_result = edge_index, norm
 
         edge_index, norm = self.cached_result
@@ -169,6 +153,10 @@ class SAGEConv(MessagePassing):
         # step(5) 
         if self.bias is not None:
             aggr_out = aggr_out + self.bias
+
+        if self.normalize:
+            aggr_out = F.normalize(aggr_out, p=2, dim=-1)  # normalize along the last dimension
+
         return aggr_out
 
     def __repr__(self):
