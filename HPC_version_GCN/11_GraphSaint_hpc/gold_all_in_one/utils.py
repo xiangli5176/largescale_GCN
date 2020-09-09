@@ -81,7 +81,7 @@ def process_graph_data(adj_full, adj_train, feats, class_map, role):
     Input:
         adj_full, adj_train: csr_matrix
         feats: np.array
-        class_map  : python dict;  value can be a list (multi-label task), or cna be a value: (multi-class task)
+        class_map  : python dict;  value can be a list (multi-label task), or can be a value: (multi-class task)
         role : python dict
     Output:
         Return: mainly get the class array as np.array
