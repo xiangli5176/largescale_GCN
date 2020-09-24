@@ -154,27 +154,42 @@ def get_edge_weight(edge_index, num_nodes, edge_weight=None, improved=False, dty
     return input_edge_weight_txt_file
 
 # remove all the isolated nodes, otherwise metis won't work normally
-def filter_out_isolate_normalize_feature(edge_index, features, label):
+def filter_out_isolate_normalize_feature(edge_index, features, label, shrink_ratio = None, rnd_seed = 30):
     """
     edge_index: torch.Tensor (2 by 2N) for undirected edges in COO format
     features:  torch.Tensor(N by k)  for N nodes and K features
     label: torch.Tensor  (N, )  classifying labels for N nodes
     """
-    edge_index_list = edge_index.t().numpy().tolist()
-    connect_graph = nx.from_edgelist(edge_index_list)
-    # filter out all the isolated nodes:
-    connected_nodes_idx = sorted(node for node in connect_graph.nodes())
+    # generate graph and edges from raw dataset:
+    connect_graph = nx.from_edgelist(edge_index.t().numpy().tolist())
+    connected_edges = np.array([ [left, right] for left, right in connect_graph.edges()])
+    unique_edges_num = len(connected_edges)
 
+    if shrink_ratio is not None:
+        np.random.seed(rnd_seed)
+        connected_edges = connected_edges[np.random.choice(unique_edges_num, round(unique_edges_num * shrink_ratio), replace = False)]
+        print("shrinked with ratio {}; connected edges has shape: {}".format(shrink_ratio, connected_edges.shape))
+        connect_graph = nx.from_edgelist(connected_edges.tolist())
+    else:
+        print("unique connected edges type: {}; shape: {}".format(type(connected_edges), connected_edges.shape))
+    
+    connected_nodes_idx = sorted(node for node in connect_graph.nodes())
+    
+    
     scaler = StandardScaler()
     # if the connected nodes is less than the total graph nodes
     if len(connected_nodes_idx) < features.shape[0]:
     #     print(edge_index.shape, type(edge_index))
-        print('isolated nodes number is: ', features.shape[0] - len(connected_nodes_idx))
+        print('excluded or isolated(if non-shrink) nodes number is: ', features.shape[0] - len(connected_nodes_idx))
+        # need to remap all the indices of the nodes after removing the isolated nodes
         mapper = {node: i for i, node in enumerate(connected_nodes_idx)}
-        connect_edge_index = [ [ mapper[edge[0]], mapper[edge[1]] ] for edge in edge_index_list ] 
+        connect_edge_index = np.array([ [ mapper[left], mapper[right] ] for left, right in connected_edges ]) 
+        connect_edge_index = np.vstack((connect_edge_index, connect_edge_index[:, ::-1]))
+        print("duplicated connected edge index type: {}; shape: {}".format(type(connect_edge_index), connect_edge_index.shape))
+        
     #     print(len(connected_nodes_idx), connected_nodes_idx[0], connected_nodes_idx[-1])
     #     print(np.array(connect_edge_index) )
-        connect_edge_index =  torch.from_numpy(np.array(connect_edge_index)).t()
+        connect_edge_index =  torch.from_numpy(connect_edge_index).t()
     #     print(connect_edge_index.shape)
 
         connect_features = features[connected_nodes_idx, :]
@@ -191,7 +206,11 @@ def filter_out_isolate_normalize_feature(edge_index, features, label):
         print('Label shape is:', label.shape)
         
         features = torch.tensor(scaler.fit_transform(features), dtype=torch.float32)
-        return edge_index, features, label
+        connected_edges = np.vstack((connected_edges, connected_edges[:, ::-1]))
+        connected_edges =  torch.from_numpy(connected_edges).t()
+        print("duplicated connected edges type: {}; shape: {}".format(type(connected_edges), connected_edges.shape))
+        
+        return connected_edges, features, label
 
 ''' Draw the information about the GCN calculating batch size '''
 def draw_cluster_info(clustering_machine, data_name, img_path, comments = '_cluster_node_distr'):

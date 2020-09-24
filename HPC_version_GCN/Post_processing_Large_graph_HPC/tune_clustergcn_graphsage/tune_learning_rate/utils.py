@@ -276,6 +276,9 @@ def draw_data_validation_F1_trainer(pickle_filename, data_name, comments, xlabel
         Validation_F1[xlabel] = sorted(F1_track.keys())
         Validation_F1[ylabel] = [F1_track[key] for key in Validation_F1[xlabel]]
         df = pd.DataFrame(Validation_F1) 
+
+        # store the data as the csv files:
+        df.to_csv("{}_data.csv".format(img_name), index = False)
         
         g = sns.relplot(x = xlabel, y = ylabel, markers=True, kind="line", data=df)
         g.despine(left=True)
