@@ -11,33 +11,6 @@ import csv
 from torch.autograd import Variable
 
 
-def generate_train_neighbor(node_train, adj_train, input_neigh_deg = [10, 5]):
-      # first neigh layer choose 10; second neigh layer choose 5...
-    max_deg = sum(input_neigh_deg)
-    neigh_adj_train = np.zeros((adj_train.indptr.shape[0], max_deg)) 
-
-    for train_id in node_train:
-        neighbors = [np.array([train_id])]
-        
-        for deg in input_neigh_deg:
-            neigh_layer = np.unique( np.concatenate([adj_train.indices[adj_train.indptr[train_idx]:adj_train.indptr[train_idx+1] ] for train_idx in neighbors[-1]] ) )
-            if len(neigh_layer) >= deg:
-                neighbors.append(np.random.choice(neigh_layer, deg, replace=False) )
-            elif len(neigh_layer) > 0:
-                neighbors.append( neigh_layer )
-            else:
-                break
-        # no neighbors for the current train node, then skip:
-        if len(neighbors) == 1:
-            continue
-        # otherwise: store all the neighbor nodes of each train node inside the array:
-        neighbors = np.unique(np.concatenate(neighbors[1:]))
-        neigh_adj_train[train_id][:len(neighbors)] = neighbors[:]
-        
-    neigh_adj_train = sp.csr_matrix(neigh_adj_train)
-    return neigh_adj_train
-    
-
 def to_numpy(x):
     """
         The original purpose of Variables was to be able to use automatic differentiation
