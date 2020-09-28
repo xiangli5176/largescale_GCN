@@ -6,11 +6,11 @@ network:
     bias: 'norm'
     act: 'relu'
 params:
-  - lr: 0.002
+  - lr: 0.0001
     dropout: 0.2
     weight_decay: 0.0
     sample_coverage: 25
 phase:
-  - end: 30
+  - end: 15
     sampler: 'sage_node'
     size_subgraph: 8000

@@ -1,11 +1,12 @@
 from multi_exec import *
 import dill
+from Post_utils import *
 
 
 if __name__ == "__main__":
     datapath = '/home/xiangli/projects/tmpdata/GCN/GraphSaint/'
 
-    working_dir = './res_dir/'
+    working_dir = './res_lr_0001/'
     prepare_data_folder = working_dir + 'prepare_data/'
     img_path = working_dir + 'result/'
 
@@ -27,10 +28,10 @@ if __name__ == "__main__":
     tune_val_label_list = [1, 5] 
     tune_val_list = [val for val in tune_val_label_list]
 
-    snapshot_period = 5   # period when to take a snapshot of the model for validation later
+    snapshot_period = 2   # period when to take a snapshot of the model for validation later
 
     # refer to the yml file to decide the training period:
-    model_epoch_list = list(range(snapshot_period, 31, snapshot_period))    # snapshot epoch list for validation
+    model_epoch_list = list(range(snapshot_period, 16, snapshot_period))    # snapshot epoch list for validation
 
     trainer_list = list(range(3))
 
@@ -81,3 +82,17 @@ if __name__ == "__main__":
         for trainer_id in trainer_list:
             execute_test_tuning(img_path, working_dir, minibatch_eval, model_eval, model_epoch_list, 
                                     tune_param_name, tune_val_label, tune_val, trainer_id = trainer_id)
+
+
+    # =================Step5 Post processing ===============
+    for tune_val_label, tune_val in zip(tune_val_label_list, tune_val_list):
+        for trainer_id in trainer_list:
+            step51_run_investigation_summarize_whole(data_name, img_path,
+                                         tune_param_name, tune_val_label, tune_val,
+                                            trainer_list, model_epoch_list)
+
+    for tune_val_label, tune_val in zip(tune_val_label_list, tune_val_list):
+        for trainer_id in trainer_list:
+            step50_run_tune_summarize_whole(data_name, img_path, 
+                                    tune_param_name, tune_val_label_list, tune_val_list,
+                                    trainer_list)
